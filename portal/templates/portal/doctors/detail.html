@@ -47,7 +47,12 @@
                         <th>Email:</th>
                         <td>{{ doctor.email|default:"-" }}</td>
                     </tr>
-                    {% if doctor.address_details %}
+                    {% if doctor.is_internal %}
+                    <tr>
+                        <th>Classification:</th>
+                        <td><span class="badge bg-secondary">Internal Doctor</span></td>
+                    </tr>
+                    {% elif doctor.address_details %}
                     <tr>
                         <th>Street:</th>
                         <td>{{ doctor.address_details.street|default:"-" }}</td>
@@ -101,7 +106,9 @@
                     <tr>
                         <th>Trip:</th>
                         <td>
-                            {% if doctor.trip %}
+                            {% if doctor.is_internal %}
+                            <span class="text-muted">Internal (Doesn't participate in trips)</span>
+                            {% elif doctor.trip %}
                             <a href="{% url 'portal:trip_detail' doctor.trip.pk %}">
                                 Trip #{{ doctor.trip.id }}
                             </a>

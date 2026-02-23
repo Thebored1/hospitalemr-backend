@@ -102,6 +102,11 @@ class DoctorAssignmentForm(forms.Form):
         max_length=10,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'PIN *'})
     )
+    is_internal = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        label='Internal Hospital Doctor'
+    )
 
 
 class AreaForm(forms.ModelForm):
@@ -165,6 +170,7 @@ class DoctorForm(forms.ModelForm):
         fields = [
             'name', 
             'contact_number', 'email', 
+            'is_internal',
             # Address fields removed - handled by AddressForm
             'remarks', 'additional_details'
         ]
@@ -172,6 +178,7 @@ class DoctorForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Doctor Name'}),
             'contact_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contact Number'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email Address'}),
+            'is_internal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'additional_details': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
@@ -200,6 +207,8 @@ class DoctorForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
             elif isinstance(field.widget, forms.Textarea):
                 field.widget.attrs['class'] = 'form-control'
+            elif isinstance(field.widget, forms.CheckboxInput):
+                 field.widget.attrs['class'] = 'form-check-input'
             else:
                 field.widget.attrs['class'] = 'form-control'
 
@@ -223,7 +232,10 @@ class DoctorForm(forms.ModelForm):
         # Always set default for portal entry
         if not instance.pk:
             instance.agent = None
-            instance.status = 'Assigned'
+            if instance.is_internal:
+                instance.status = 'Internal'
+            else:
+                instance.status = 'Assigned'
             
         if commit:
             instance.save()

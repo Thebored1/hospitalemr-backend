@@ -372,11 +372,20 @@ class DoctorCreateView(PortalMixin, CreateView):
     def form_valid(self, form):
         context = self.get_context_data()
         address_form = context['address_form']
-        if address_form.is_valid():
+        
+        # If it's an internal doctor, we don't need address validation
+        is_internal = form.cleaned_data.get('is_internal', False)
+        
+        if is_internal or address_form.is_valid():
             self.object = form.save(commit=False)
-            # Create address first
-            address = address_form.save()
-            self.object.address_details = address
+            
+            if is_internal:
+                self.object.address_details = None
+            else:
+                # Create address first
+                address = address_form.save()
+                self.object.address_details = address
+                
             self.object.save()
             messages.success(self.request, f'Doctor "{self.object.name}" created successfully.')
             return redirect(self.success_url)
@@ -408,13 +417,19 @@ class DoctorUpdateView(PortalMixin, UpdateView):
     def form_valid(self, form):
         context = self.get_context_data()
         address_form = context['address_form']
-        if address_form.is_valid():
+        
+        is_internal = form.cleaned_data.get('is_internal', False)
+        
+        if is_internal or address_form.is_valid():
             self.object = form.save(commit=False)
             
-            # Save address
-            if address_form.has_changed():
-                address = address_form.save()
-                self.object.address_details = address
+            if is_internal:
+                self.object.address_details = None
+            else:
+                # Save address only if it's changed and valid
+                if address_form.has_changed():
+                    address = address_form.save()
+                    self.object.address_details = address
             
             self.object.save()
             messages.success(self.request, f'Doctor "{self.object.name}" updated successfully.')

@@ -185,9 +185,12 @@ class DoctorReferral(models.Model):
     remarks = models.TextField(blank=True, null=True)
     additional_details = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_internal = models.BooleanField(default=False, help_text="Internal doctors do not need addresses and cannot be assigned to agents.")
+    
     DOCTOR_STATUS_CHOICES = (
         ('Assigned', 'Assigned'),
         ('Referred', 'Referred'),
+        ('Internal', 'Internal'),
     )
     status = models.CharField(max_length=50, choices=DOCTOR_STATUS_CHOICES, default='Assigned')
     visit_image = models.ImageField(upload_to='doctor_visits/', null=True, blank=True)

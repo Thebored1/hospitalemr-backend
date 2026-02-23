@@ -62,12 +62,23 @@
                                 <label class="form-label">Email Address</label>
                                 {{ form.email }}
                             </div>
+
+                            <div class="mb-3 form-check mt-4">
+                                {{ form.is_internal }}
+                                <label class="form-check-label fw-bold text-primary"
+                                    for="{{ form.is_internal.id_for_label }}">
+                                    Internal Hospital Doctor
+                                </label>
+                                <div class="form-text small text-muted">
+                                    Internal doctors do not need addresses and cannot be assigned to agents.
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Right Column: Location & Notes -->
                         <div class="col-md-6">
                             <h6 class="text-muted mb-3">Address & Location</h6>
-                            <div class="card bg-light border-0 mb-3">
+                            <div class="card bg-light border-0 mb-3" id="address-card">
                                 <div class="card-body">
                                     <h6 class="card-title text-primary"><i class="bi bi-geo-alt me-2"></i>Address
                                         Details</h6>
@@ -285,6 +296,26 @@
         handleModalSubmit('#createAreaForm', '#createAreaModal');
         handleModalSubmit('#createSpecializationForm', '#createSpecializationModal');
         handleModalSubmit('#createQualificationForm', '#createQualificationModal');
+
+        // Internal Doctor Toggle Logic
+        function toggleAddressSection() {
+            var isInternal = $('#id_is_internal').is(':checked');
+            if (isInternal) {
+                $('#address-card').slideUp(300);
+                // Optionally clear values or disable requirements
+                $('#address-card input, #address-card select').prop('disabled', true);
+            } else {
+                $('#address-card').slideDown(300);
+                $('#address-card input, #address-card select').prop('disabled', false);
+            }
+        }
+
+        // Run on page load
+        toggleAddressSection();
+
+        // Run on change
+        $('#id_is_internal').on('change', toggleAddressSection);
+
     });
 </script>
 {% endblock %}
