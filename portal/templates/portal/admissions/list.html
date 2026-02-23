@@ -1,0 +1,167 @@
+{% extends 'portal/base.html' %}
+{% block title %}Admissions & Billing{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-hospital me-2"></i>Admissions & Billing</h2>
+    <a href="{% url 'portal:admission_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> New Admission
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ admitted_count }}</h3>
+                <small>Currently Admitted</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ total_opd }}</h3>
+                <small>OPD Cases</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ total_ipd }}</h3>
+                <small>IPD Cases</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ admissions.count }}</h3>
+                <small>Total Admissions</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4 bg-light border-0">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <input type="text" name="q" class="form-control" placeholder="Search patient, doctor..." value="{{ request.GET.q }}">
+            </div>
+            <div class="col-md-3">
+                <select name="type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="OPD" {% if request.GET.type == 'OPD' %}selected{% endif %}>OPD</option>
+                    <option value="IPD" {% if request.GET.type == 'IPD' %}selected{% endif %}>IPD</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="ADMITTED" {% if request.GET.status == 'ADMITTED' %}selected{% endif %}>Admitted</option>
+                    <option value="DISCHARGED" {% if request.GET.status == 'DISCHARGED' %}selected{% endif %}>Discharged</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+                <a href="{% url 'portal:admission_list' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Patient Name</th>
+                    <th>Type</th>
+                    <th>Referred By</th>
+                    <th>Agent</th>
+                    <th>Status</th>
+                    <th>Total Charges</th>
+                    <th>Admission Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for admission in admissions %}
+                <tr>
+                    <td><strong>#{{ admission.id }}</strong></td>
+                    <td>
+                        <i class="bi bi-person me-1"></i>
+                        {{ admission.patient_name }}
+                    </td>
+                    <td>
+                        {% if admission.admission_type == 'IPD' %}
+                        <span class="badge bg-success">IPD</span>
+                        {% else %}
+                        <span class="badge bg-info">OPD</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if admission.referred_by_doctor %}
+                        {{ admission.referred_by_doctor.name }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if admission.referred_by_doctor and admission.referred_by_doctor.agent %}
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ admission.referred_by_doctor.agent.username }}
+                        {% elif admission.patient_referral and admission.patient_referral.agent %}
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ admission.patient_referral.agent.username }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if admission.status == 'ADMITTED' %}
+                        <span class="badge bg-warning text-dark">Admitted</span>
+                        {% elif admission.status == 'DISCHARGED' %}
+                        <span class="badge bg-success">Discharged</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Cancelled</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>Rs {{ admission.total_charges|floatformat:2 }}</strong></td>
+                    <td>{{ admission.admission_date|date:"M d, Y" }}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'portal:admission_detail' admission.pk %}" class="btn btn-outline-primary" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'portal:admission_edit' admission.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                        {% if admission.status == 'ADMITTED' %}
+                        <form method="post" action="{% url 'portal:admission_discharge' admission.pk %}" class="d-inline ms-1">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-success btn-sm" title="Dismiss">
+                                <i class="bi bi-check2-circle"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        No admissions yet. <a href="{% url 'portal:admission_create' %}">Create one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

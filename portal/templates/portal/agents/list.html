@@ -1,0 +1,99 @@
+{% extends 'portal/base.html' %}
+{% block title %}Agents{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people me-2"></i>Agents</h2>
+    <a href="{% url 'portal:agent_create' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i> New Agent
+    </a>
+</div>
+
+<div class="card mb-4 bg-light border-0">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <input type="text" name="q" class="form-control" placeholder="Search by name or email..."
+                    value="{{ request.GET.q }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+                <a href="{% url 'portal:agent_list' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>Trips</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for agent in agents %}
+                <tr>
+                    <td>
+                        <i class="bi bi-person-circle me-1"></i>
+                        <strong>{{ agent.username }}</strong>
+                    </td>
+                    <td>{{ agent.get_full_name|default:"-" }}</td>
+                    <td>{{ agent.email|default:"-" }}</td>
+                    <td>
+                        <span class="badge bg-secondary">{{ agent.trip_count }} trips</span>
+                    </td>
+                    <td>
+                        {% if agent.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ agent.date_joined|date:"M d, Y" }}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'portal:agent_edit' agent.pk %}" class="btn btn-outline-primary"
+                                title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'portal:agent_password' agent.pk %}" class="btn btn-outline-warning"
+                                title="Change Password">
+                                <i class="bi bi-key"></i>
+                            </a>
+                            <a href="{% url 'portal:agent_delete' agent.pk %}" class="btn btn-outline-danger"
+                                title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        No agents yet. <a href="{% url 'portal:agent_create' %}">Create one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends 'portal/base.html' %}
+{% block title %}Agent Assignments{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-geo-alt me-2"></i>Agent Assignments</h2>
+    <div>
+        <a href="{% url 'portal:agent_assignment_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> New Assignment
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4 bg-light border-0">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <select name="agent" class="form-select">
+                    <option value="">All Agents</option>
+                    {% for agent in agents %}
+                    <option value="{{ agent.pk }}" {% if request.GET.agent == agent.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ agent.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select name="area" class="form-select">
+                    <option value="">All Areas</option>
+                    {% for area in areas %}
+                    <option value="{{ area.pk }}" {% if request.GET.area == area.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ area.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <i class="bi bi-search me-1"></i> Filter
+                </button>
+                <a href="{% url 'portal:agent_assignment_list' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Assigned Agent</th>
+                    <th>Area</th>
+                    <th>Completion</th>
+                    <th>Notes</th>
+                    <th>Assigned Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assignment in assignments %}
+                <tr>
+                    <td>
+                        <i class="bi bi-person-badge me-1"></i>
+                        <strong>{{ assignment.agent.username }}</strong>
+                    </td>
+                    <td>
+                        {{ assignment.area.name }}
+                        <small class="d-block text-muted">{{ assignment.area.city }}</small>
+                    </td>
+                    <td>
+                        {% if assignment.is_complete %}
+                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Complete</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>In
+                            Progress</span>
+                        {% endif %}
+                        <small class="d-block text-muted mt-1">{{ assignment.completion_stats }}</small>
+                    </td>
+                    <td>{{ assignment.notes|default:"-" }}</td>
+                    <td>{{ assignment.assigned_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'portal:agent_assignment_detail' assignment.pk %}"
+                            class="btn btn-sm btn-outline-primary" title="View Details">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                        <form method="post" action="{% url 'portal:agent_assignment_delete' assignment.pk %}"
+                            class="d-inline ms-1" onsubmit="return confirm('Delete this assignment?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        No assignment history found. <a href="{% url 'portal:agent_assignment_create' %}">Create one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

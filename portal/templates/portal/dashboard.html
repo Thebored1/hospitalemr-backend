@@ -1,0 +1,141 @@
+{% extends 'portal/base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
+    <span class="text-muted">Welcome, {{ request.user.username }}</span>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ active_agents }}</div>
+            <div class="stat-label"><i class="bi bi-people me-1"></i> Active Agents</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);">
+            <div class="stat-value">{{ ongoing_trips }}</div>
+            <div class="stat-label"><i class="bi bi-car-front me-1"></i> Ongoing Trips</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #155724 100%);">
+            <div class="stat-value">{{ completed_trips }}</div>
+            <div class="stat-label"><i class="bi bi-check-circle me-1"></i> Completed Trips</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <a href="{% url 'portal:doctor_list' %}" class="text-decoration-none text-white">
+            <div class="stat-card" style="background: linear-gradient(135deg, #e94560 0%, #a30f2d 100%);">
+                <div class="stat-value">{{ total_doctor_referrals }}</div>
+                <div class="stat-label"><i class="bi bi-person-badge me-1"></i> Doctor Referrals</div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-lightning me-2"></i>Quick Actions
+            </div>
+            <div class="card-body">
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{% url 'portal:agent_create' %}" class="btn btn-primary">
+                        <i class="bi bi-person-plus me-1"></i> New Agent
+                    </a>
+
+                    <a href="{% url 'portal:doctor_create' %}" class="btn btn-success">
+                        <i class="bi bi-person-badge me-1"></i> New Doctor
+                    </a>
+
+                    <a href="{% url 'portal:doctor_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-person-lines-fill me-1"></i> Manage Doctors
+                    </a>
+
+                    <a href="{% url 'portal:agent_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-people me-1"></i> View All Agents
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-graph-up me-2"></i>Summary
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col">
+                        <h4 class="mb-0">{{ total_agents }}</h4>
+                        <small class="text-muted">Total Agents</small>
+                    </div>
+                    <div class="col">
+                        <h4 class="mb-0">{{ total_trips }}</h4>
+                        <small class="text-muted">Total Trips</small>
+                    </div>
+                    <div class="col">
+                        <h4 class="mb-0">{{ total_patient_referrals }}</h4>
+                        <small class="text-muted">Patient Referrals</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Trips -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Recent Trips</span>
+        <a href="{% url 'portal:trip_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Agent</th>
+                    <th>Start Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trip in recent_trips %}
+                <tr>
+                    <td>#{{ trip.id }}</td>
+                    <td>
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ trip.agent.get_full_name|default:trip.agent.username }}
+                    </td>
+                    <td>{{ trip.start_time|date:"M d, Y H:i" }}</td>
+                    <td>
+                        {% if trip.status == 'ONGOING' %}
+                        <span class="badge badge-ongoing">Ongoing</span>
+                        {% else %}
+                        <span class="badge badge-completed">Completed</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'portal:trip_detail' trip.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">No trips yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

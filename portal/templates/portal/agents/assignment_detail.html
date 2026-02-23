@@ -1,0 +1,323 @@
+{% extends 'portal/base.html' %}
+{% block title %}Assignment: {{ assignment.agent.username }} → {{ assignment.area.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:agent_assignment_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Assignments
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="bi bi-geo-alt me-2"></i>Agent Assignment Details
+    </h2>
+    <span class="badge bg-primary fs-6">{{ assignment.assigned_at|date:"M d, Y" }}</span>
+</div>
+
+<div class="row g-4">
+    <!-- Assignment Info -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Assignment Information
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th style="width: 40%">Assigned Date:</th>
+                        <td><strong>{{ assignment.assigned_at|date:"M d, Y H:i" }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Assigned Time:</th>
+                        <td>{{ assignment.assigned_at|date:"g:i A" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Assignment ID:</th>
+                        <td><code>#{{ assignment.id }}</code></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Info -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-badge me-2"></i>Assigned Agent
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th style="width: 40%">Username:</th>
+                        <td>
+                            <strong>{{ assignment.agent.username }}</strong>
+                            <a href="{% url 'portal:agent_edit' assignment.agent.pk %}"
+                                class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="bi bi-pencil"></i> View Agent
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Full Name:</th>
+                        <td>{{ assignment.agent.get_full_name|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Email:</th>
+                        <td>{{ assignment.agent.email|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th>
+                        <td>
+                            {% if assignment.agent.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Area Info -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-map me-2"></i>Assigned Area
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th style="width: 40%">Area Name:</th>
+                        <td><strong>{{ assignment.area.name }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>City:</th>
+                        <td>{{ assignment.area.city }}</td>
+                    </tr>
+                    <tr>
+                        <th>State:</th>
+                        <td>{{ assignment.area.state|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Pincode:</th>
+                        <td>{{ assignment.area.pincode|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Street:</th>
+                        <td>{{ assignment.area.street|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Landmark:</th>
+                        <td>{{ assignment.area.landmark|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Region:</th>
+                        <td>{{ assignment.area.region|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Current Agent:</th>
+                        <td>
+                            {% if assignment.area.agent %}
+                            <i class="bi bi-person-circle me-1"></i>
+                            {{ assignment.area.agent.username }}
+                            {% if assignment.area.agent.pk == assignment.agent.pk %}
+                            <span class="badge bg-success ms-1">This Assignment</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+                {% if assignment.area.description %}
+                <div class="mt-3">
+                    <strong>Description:</strong>
+                    <p class="text-muted mb-0">{{ assignment.area.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-sticky me-2"></i>Notes
+            </div>
+            <div class="card-body">
+                {% if assignment.notes %}
+                <p class="mb-0">{{ assignment.notes|linebreaks }}</p>
+                {% else %}
+                <p class="text-muted mb-0"><em>No notes provided for this assignment.</em></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Doctors in this Area -->
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+            <i class="bi bi-person-badge me-2"></i>Doctors in {{ assignment.area.name }}
+        </span>
+        <span class="badge bg-info">{{ doctor_count }} doctor{{ doctor_count|pluralize }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if doctors %}
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Doctor Name</th>
+                    <th>Specialization</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Visit Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doctor in doctors %}
+                <tr {% if doctor.is_disabled_in_assignment %}class="table-light opacity-75" {% endif %}>
+                    <td>
+                        <strong>{{ doctor.name }}</strong>
+                        {% if doctor.is_disabled_in_assignment %}
+                        <span class="badge bg-secondary ms-1">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ doctor.specialization|default:"-" }}</td>
+                    <td>
+                        {% if doctor.contact_number %}
+                        {{ doctor.contact_number }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-info">{{ doctor.status }}</span>
+                    </td>
+                    <td>
+                        {% if doctor.trip %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle me-1"></i>Visited
+                        </span>
+                        <br>
+                        <a href="{% url 'portal:trip_detail' doctor.trip.pk %}" class="small text-decoration-none">
+                            Trip #{{ doctor.trip.id }}
+                        </a>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-clock me-1"></i>Pending
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>{{ doctor.created_at|date:"M d, Y" }}</td>
+                    <td>
+                        <a href="{% url 'portal:doctor_detail' doctor.pk %}" class="btn btn-sm btn-outline-primary"
+                            title="View Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-secondary ms-1 toggle-doctor-btn"
+                            data-doctor-id="{{ doctor.pk }}" data-assignment-id="{{ assignment.id }}"
+                            data-doctor-status="{% if doctor.is_disabled_in_assignment %}disabled{% else %}enabled{% endif %}"
+                            title="{% if doctor.is_disabled_in_assignment %}Enable{% else %}Disable{% endif %} Doctor">
+                            <i
+                                class="bi {% if doctor.is_disabled_in_assignment %}bi-check-circle text-success{% else %}bi-x-circle text-danger{% endif %}"></i>
+                            {% if doctor.is_disabled_in_assignment %}Enable{% else %}Disable{% endif %}
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-person-badge fs-1 d-block mb-2"></i>
+            <p class="mb-0">No doctors found in this area yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Assignment History for this Area -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-clock-history me-2"></i>Assignment History for {{ assignment.area.name }}
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Agent</th>
+                    <th>Notes</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for hist_assignment in assignment.area.assignment_history.all|slice:":10" %}
+                <tr {% if hist_assignment.pk == assignment.pk %}class="table-primary" {% endif %}>
+                    <td>{{ hist_assignment.assigned_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <i class="bi bi-person-badge me-1"></i>
+                        {{ hist_assignment.agent.username }}
+                    </td>
+                    <td>{{ hist_assignment.notes|truncatewords:10|default:"-" }}</td>
+                    <td>
+                        {% if hist_assignment.pk == assignment.pk %}
+                        <span class="badge bg-primary">Current View</span>
+                        {% elif hist_assignment.area.agent.pk == hist_assignment.agent.pk %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Historical</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-3">No assignment history</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Toggle doctor enable/disable status
+    document.querySelectorAll('.toggle-doctor-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const doctorId = this.dataset.doctorId;
+            const assignmentId = this.dataset.assignmentId;
+            const csrfToken = '{{ csrf_token }}';
+
+            fetch(`/portal/assignments/${assignmentId}/doctors/${doctorId}/toggle/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reload the page to reflect changes
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to toggle doctor status');
+                });
+        });
+    });
+</script>
+{% endblock %}

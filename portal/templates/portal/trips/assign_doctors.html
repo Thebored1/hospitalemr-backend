@@ -1,0 +1,89 @@
+{% extends 'portal/base.html' %}
+{% block title %}Assign Doctors - Trip #{{ trip.id }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:trip_detail' trip.pk %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Trip Details
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-person-plus me-2"></i>Assign Doctors to Trip #{{ trip.id }}</h2>
+    <span class="text-muted">Agent: {{ trip.agent.get_full_name|default:trip.agent.username }}</span>
+</div>
+
+<div class="row g-4">
+    <!-- Add Doctor Form -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-plus-circle me-2"></i>Add Doctor
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">
+                            {{ field.label }}
+                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-plus-lg me-1"></i>Add Doctor
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assigned Doctors List -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-badge me-2"></i>Assigned Doctors ({{ doctors.count }})
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Doctor Name</th>
+                            <th>Specialization</th>
+                            <th>Contact</th>
+                            <th>Address</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doctor in doctors %}
+                        <tr>
+                            <td><strong>{{ doctor.name }}</strong></td>
+                            <td>{{ doctor.specialization|default:"-" }}</td>
+                            <td>{{ doctor.contact_number|default:"-" }}</td>
+                            <td>{{ doctor.address|truncatewords:8|default:"-" }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ doctor.status }}</span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                No doctors assigned yet. Use the form to add doctors.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

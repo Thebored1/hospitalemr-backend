@@ -1,0 +1,208 @@
+{% extends 'portal/base.html' %}
+{% block title %}Admission: {{ admission.patient_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:admission_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Admissions
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="bi bi-hospital me-2"></i>{{ admission.patient_name }}
+        {% if admission.admission_type == 'IPD' %}
+        <span class="badge bg-success ms-2">IPD</span>
+        {% else %}
+        <span class="badge bg-info ms-2">OPD</span>
+        {% endif %}
+    </h2>
+    <div>
+        {% if admission.status == 'ADMITTED' %}
+        <span class="badge bg-warning text-dark fs-6">Admitted</span>
+        {% elif admission.status == 'DISCHARGED' %}
+        <span class="badge bg-success fs-6">Discharged</span>
+        {% else %}
+        <span class="badge bg-secondary fs-6">Cancelled</span>
+        {% endif %}
+        <a href="{% url 'portal:admission_edit' admission.pk %}" class="btn btn-outline-primary ms-2">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Patient Info -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person me-2"></i>Patient Information
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th>Name:</th>
+                        <td><strong>{{ admission.patient_name }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Phone:</th>
+                        <td>{{ admission.patient_phone|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Age:</th>
+                        <td>{{ admission.patient_age|default:"-" }} years</td>
+                    </tr>
+                    <tr>
+                        <th>Gender:</th>
+                        <td>{{ admission.patient_gender|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Address:</th>
+                        <td>{{ admission.patient_address|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Referral Info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-link-45deg me-2"></i>Referral Information
+            </div>
+            <div class="card-body">
+                {% if admission.referred_by_doctor %}
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th>Doctor:</th>
+                        <td>
+                            <a href="{% url 'portal:doctor_detail' admission.referred_by_doctor.pk %}">
+                                {{ admission.referred_by_doctor.name }}
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Agent:</th>
+                        <td>
+                            {% if admission.referred_by_doctor.agent %}
+                            <i class="bi bi-person-circle me-1"></i>
+                            {{
+                            admission.referred_by_doctor.agent.get_full_name|default:admission.referred_by_doctor.agent.username
+                            }}
+                            {% else %}
+                            <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Referral Amount:</th>
+                        <td><strong class="text-success">₹{{ admission.referral_amount|floatformat:2 }}</strong></td>
+                    </tr>
+                </table>
+                {% else %}
+                <p class="text-muted mb-0">No referral recorded</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Admission Dates -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-calendar me-2"></i>Dates
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th>Admission:</th>
+                        <td>{{ admission.admission_date|date:"M d, Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Discharge:</th>
+                        <td>{{ admission.discharge_date|date:"M d, Y H:i"|default:"Not discharged" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Billing Breakdown -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-currency-rupee me-2"></i>Billing Breakdown
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Charge Type</th>
+                            <th class="text-end">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><i class="bi bi-door-open me-2 text-muted"></i>Bed Charges</td>
+                            <td class="text-end">{{ admission.bed_charges|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-heart-pulse me-2 text-muted"></i>Nursing Charges</td>
+                            <td class="text-end">{{ admission.nursing_charges|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-person-badge me-2 text-muted"></i>Doctor Consultation</td>
+                            <td class="text-end">{{ admission.doctor_consultation_charges|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <i class="bi bi-clipboard2-pulse me-2 text-muted"></i>Investigation
+                                <span class="badge bg-secondary ms-1">{{ admission.get_investigation_type_display
+                                    }}</span>
+                            </td>
+                            <td class="text-end">{{ admission.investigation_charges|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-bandaid me-2 text-muted"></i>Procedural / Surgical</td>
+                            <td class="text-end">{{ admission.procedural_surgical_charges|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-droplet me-2 text-muted"></i>Anaesthesia</td>
+                            <td class="text-end">{{ admission.anaesthesia_charges|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-person-fill me-2 text-muted"></i>Surgeon Charges</td>
+                            <td class="text-end">{{ admission.surgeon_charges|floatformat:2 }}</td>
+                        </tr>
+                        {% if admission.other_charges > 0 %}
+                        <tr>
+                            <td>
+                                <i class="bi bi-plus-circle me-2 text-muted"></i>Other Charges
+                                {% if admission.other_charges_description %}
+                                <br><small class="text-muted">{{ admission.other_charges_description }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ admission.other_charges|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot class="table-dark">
+                        <tr>
+                            <th><i class="bi bi-calculator me-2"></i>TOTAL</th>
+                            <th class="text-end fs-5">₹{{ admission.total_charges|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        {% if admission.notes %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-journal-text me-2"></i>Notes
+            </div>
+            <div class="card-body">
+                {{ admission.notes|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

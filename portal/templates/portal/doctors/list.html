@@ -1,0 +1,106 @@
+{% extends 'portal/base.html' %}
+{% block title %}Doctors{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-person-badge me-2"></i>Doctors Master Table</h2>
+    <div>
+        <span class="badge bg-secondary fs-6 me-2">{{ doctors.count }} total</span>
+        <a href="{% url 'portal:doctor_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Add Doctor
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4 bg-light border-0">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <input type="text" name="q" class="form-control" placeholder="Search by name, spec, contact..."
+                    value="{{ request.GET.q }}">
+            </div>
+            <div class="col-md-4">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="Assigned" {% if request.GET.status == 'Assigned' %}selected{% endif %}>Assigned
+                    </option>
+                    <option value="Not Assigned" {% if request.GET.status == 'Not Assigned' %}selected{% endif %}>Not
+                        Assigned</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+                <a href="{% url 'portal:doctor_list' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Doctor Name</th>
+                    <th>Area</th>
+                    <th>Specialization</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doctor in doctors %}
+                <tr>
+                    <td>
+                        <strong>{{ doctor.name }}</strong>
+                    </td>
+                    <td>
+                        {% if doctor.address_details %}
+                        {{ doctor.address_details.area.name }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ doctor.specialization|default:"-" }}</td>
+                    <td>{{ doctor.contact_number|default:"-" }}</td>
+                    <td>
+                        {% if doctor.is_assigned %}
+                        <span class="badge bg-success">Assigned</span>
+                        {% else %}
+                        <span class="badge bg-danger">Not Assigned</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ doctor.created_at|date:"M d, Y" }}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'portal:doctor_detail' doctor.pk %}" class="btn btn-outline-primary"
+                                title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'portal:doctor_commission' doctor.pk %}" class="btn btn-outline-warning"
+                                title="Manage Commissions">
+                                <i class="bi bi-currency-dollar"></i>
+                            </a>
+                            <a href="{% url 'portal:doctor_edit' doctor.pk %}" class="btn btn-outline-secondary"
+                                title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        No doctors in the system yet. <a href="{% url 'portal:doctor_create' %}">Add one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

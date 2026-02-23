@@ -1,0 +1,110 @@
+{% extends 'portal/base.html' %}
+
+{% block title %}Patient Referrals{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Patient Referrals</h4>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Search patients, agents..."
+                        value="{{ request.GET.q }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Statuses</option>
+                    <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>
+                    <option value="Admitted" {% if request.GET.status == 'Admitted' %}selected{% endif %}>Admitted
+                    </option>
+                    <option value="Dismissed" {% if request.GET.status == 'Dismissed' %}selected{% endif %}>Dismissed
+                    </option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Patient Name</th>
+                        <th>Age/Gender</th>
+                        <th>Contact</th>
+                        <th>Illness</th>
+                        <th>Referred By</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patient in patients %}
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <i class="bi bi-person me-1"></i>
+                            {{ patient.patient_name }}
+                            {% if patient.is_urgent %}
+                            <span class="badge bg-danger ms-2">Urgent</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ patient.age }} / {{ patient.gender }}
+                        </td>
+                        <td>
+                            <i class="bi bi-telephone me-1"></i> {{ patient.phone }}
+                        </td>
+                        <td>
+                            <div class="text-truncate" style="max-width: 150px;" title="{{ patient.illness }}">
+                                {{ patient.illness }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm bg-light rounded-circle text-primary me-2 d-flex align-items-center justify-content-center"
+                                    style="width: 32px; height: 32px;">
+                                    {{ patient.agent.username|make_list|first|upper }}
+                                </div>
+                                <div>
+                                    <div class="small fw-bold">{{ patient.agent.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ patient.reported_on|date:"M d, Y" }}</small>
+                        </td>
+                        <td>
+                            {% if patient.status == 'Pending' %}
+                            <span
+                                class="badge bg-warning-subtle text-warning border border-warning-subtle">Pending</span>
+                            {% elif patient.status == 'Admitted' %}
+                            <span
+                                class="badge bg-success-subtle text-success border border-success-subtle">Admitted</span>
+                            {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{
+                                patient.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-person-slash display-4 d-block mb-3"></i>
+                            No patient referrals found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

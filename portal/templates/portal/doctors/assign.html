@@ -1,0 +1,147 @@
+{% extends 'portal/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h4 class="mb-0"><i class="bi bi-person-check me-2"></i>{{ title }}</h4>
+    </div>
+    <div class="col-auto">
+        <div class="btn-group">
+            <a href="?status=all"
+                class="btn btn-outline-secondary {% if current_status == 'all' %}active{% endif %}">All</a>
+            <a href="?status=unassigned"
+                class="btn btn-outline-secondary {% if current_status == 'unassigned' %}active{% endif %}">Unassigned</a>
+            <a href="?status=assigned"
+                class="btn btn-outline-secondary {% if current_status == 'assigned' %}active{% endif %}">Assigned</a>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row gap-2">
+            <input type="hidden" name="status" value="{{ current_status }}">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search Name, Area, City..."
+                    value="{{ request.GET.search }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Search</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body bg-light border-bottom">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    {{ form.agent.label_tag }}
+                    {{ form.agent }}
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle me-1"></i> Assign Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
+                        <th>Doctor Name</th>
+                        <th>Specialization</th>
+                        <th>Area / City</th>
+                        <th>Current Agent</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doctor in doctors %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="doctor_ids" value="{{ doctor.id }}"
+                                class="form-check-input doctor-check">
+                        </td>
+                        <td>
+                            <a href="{% url 'portal:doctor_detail' doctor.pk %}"
+                                class="text-decoration-none fw-bold text-dark">
+                                {{ doctor.name }}
+                            </a>
+                            <div class="small text-muted">{{ doctor.degree_qualification }}</div>
+                        </td>
+                        <td>{{ doctor.specialization|default:"-" }}</td>
+                        <td>
+                            <div>{{ doctor.area }}</div>
+                            <div class="small text-muted">{{ doctor.city }}</div>
+                        </td>
+                        <td>
+                            {% if doctor.agent %}
+                            <span class="badge bg-info text-dark">{{ doctor.agent.username }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ doctor.status }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-4 d-block mb-2"></i>
+                            No doctors found matching filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="card-footer bg-white d-flex justify-content-center pt-3">
+            <nav>
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}&search={{ request.GET.search }}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item disabled">
+                        <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.next_page_number }}&status={{ current_status }}&search={{ request.GET.search }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</form>
+
+<script>
+    document.getElementById('selectAll').addEventListener('change', function () {
+        var checkboxes = document.querySelectorAll('.doctor-check');
+        for (var i = 0; i < checkboxes.length; i++) {
+            checkboxes[i].checked = this.checked;
+        }
+    });
+</script>
+{% endblock %}

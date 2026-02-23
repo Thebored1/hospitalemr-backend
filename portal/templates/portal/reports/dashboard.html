@@ -1,0 +1,384 @@
+{% extends 'portal/base.html' %}
+{% block title %}{{title}}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-graph-up-arrow me-2"></i>{{title}}</h2>
+    <div class="text-muted">Data as of {% now "M d, Y H:i" %}</div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-primary text-white h-100">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 opacity-75">Total Revenue</h6>
+                <h3 class="card-title mb-0">₹ {{total_summary.total_revenue|default:"0.00"|floatformat:2}}</h3>
+                <i class="bi bi-currency-rupee position-absolute top-50 end-0 translate-middle-y opacity-25"
+                    style="font-size: 3rem; margin-right: 1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-success text-white h-100">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 opacity-75">Total Admissions</h6>
+                <h3 class="card-title mb-0">{{total_summary.total_patients|default:0}}</h3>
+                <i class="bi bi-people position-absolute top-50 end-0 translate-middle-y opacity-25"
+                    style="font-size: 3rem; margin-right: 1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-info text-white h-100">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 opacity-75">OPD Patients</h6>
+                <h3 class="card-title mb-0">{{total_summary.opd_total|default:0}}</h3>
+                <i class="bi bi-person-check position-absolute top-50 end-0 translate-middle-y opacity-25"
+                    style="font-size: 3rem; margin-right: 1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-warning text-white h-100">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 opacity-75">IPD Patients</h6>
+                <h3 class="card-title mb-0">{{total_summary.ipd_total|default:0}}</h3>
+                <i class="bi bi-hospital position-absolute top-50 end-0 translate-middle-y opacity-25"
+                    style="font-size: 3rem; margin-right: 1rem;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h5 class="card-title mb-0"><i class="bi bi-filter me-2"></i>Global Filters</h5>
+    </div>
+    <div class="card-body bg-light">
+        <form method="get" class="row g-3">
+            <input type="hidden" name="active_tab" id="active_tab_input" value="{{ active_tab }}">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Area</label>
+                <select name="area" class="form-select select2">
+                    <option value="">All Areas</option>
+                    {% for area in areas %}
+                    <option value="{{area.id}}" {% if filters_data.area_id == area.id %} selected{% endif %}>
+                        {{area.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Specialization</label>
+                <select name="specialization" class="form-select select2">
+                    <option value="">All Specializations</option>
+                    {% for spec in specializations %}
+                    <option value="{{spec}}" {% if filters_data.specialization == spec %} selected{% endif %}>
+                        {{spec}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Doctor</label>
+                <select name="doctor" class="form-select select2">
+                    <option value="">All Doctors</option>
+                    {% for doc in doctors_list %}
+                    <option value="{{doc.id}}" {% if filters_data.doctor_id == doc.id %} selected{% endif %}>
+                        {{doc.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Agent</label>
+                <select name="agent" class="form-select select2">
+                    <option value="">All Agents</option>
+                    {% for agent in agents %}
+                    <option value="{{agent.id}}" {% if filters_data.agent_id == agent.id %} selected{% endif %}>
+                        {{agent.username}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">From Date</label>
+                <input type="date" name="date_start" class="form-control" value="{{filters_data.date_start}}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">To Date</label>
+                <input type="date" name="date_end" class="form-control" value="{{filters_data.date_end}}">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter me-1"></i> Apply
+                    Filters</button>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <a href="{% url 'portal:reports_dashboard' %}" class="btn btn-outline-secondary w-100">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white border-bottom-0">
+        <ul class="nav nav-tabs card-header-tabs" id="reportTabs" role="tablist">
+            <li class="nav-item" role="presentation"><button
+                    class="nav-link {% if active_tab == 'patients' %}active{% endif %}" data-bs-toggle="tab"
+                    data-bs-target="#patients" type="button" role="tab"><i class="bi bi-people me-1"></i>
+                    Patients</button></li>
+            <li class="nav-item" role="presentation"><button
+                    class="nav-link {% if active_tab == 'doctors' %}active{% endif %}" data-bs-toggle="tab"
+                    data-bs-target="#doctors" type="button" role="tab"><i class="bi bi-person-badge me-1"></i>
+                    Doctors</button></li>
+            <li class="nav-item" role="presentation"><button
+                    class="nav-link {% if active_tab == 'agents' %}active{% endif %}" data-bs-toggle="tab"
+                    data-bs-target="#agents" type="button" role="tab"><i class="bi bi-person-workspace me-1"></i>
+                    Agents</button></li>
+            <li class="nav-item" role="presentation"><button
+                    class="nav-link {% if active_tab == 'category' %}active{% endif %}" data-bs-toggle="tab"
+                    data-bs-target="#category" type="button" role="tab"><i class="bi bi-tags me-1"></i>
+                    Categories</button></li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div class="tab-content">
+            <div class="tab-pane fade {% if active_tab == 'patients' %}show active{% endif %}" id="patients"
+                role="tabpanel">
+
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div class="card text-center border-0 shadow-sm">
+                            <div class="card-body">
+                                <h2 class="text-primary mb-0">₹
+                                    {{explorer_stats.total_revenue|default:"0.00"|floatformat:2}}</h2>
+                                <p class="text-muted small mb-0">Filtered Revenue</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center border-0 shadow-sm">
+                            <div class="card-body">
+                                <h2 class="text-success mb-0">{{explorer_stats.patient_count}}</h2>
+                                <p class="text-muted small mb-0">Total Patients</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center border-0 shadow-sm">
+                            <div class="card-body">
+                                <h2 class="text-info mb-0">{{explorer_stats.doctor_count}}</h2>
+                                <p class="text-muted small mb-0">Doctors in this Context</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="card-title mb-0 text-muted small text-uppercase fw-bold">Detailed Entries</h5>
+                    </div>
+                    <table id="patients-table" class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Patient</th>
+                                <th>Doctor</th>
+                                <th>Agent</th>
+                                <th>Type</th>
+                                <th>Category</th>
+                                <th class="text-end">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for admission in filtered_admissions %}
+                            <tr>
+                                <td class="text-muted small">{{admission.created_at|date:"M d, Y"}}</td>
+                                <td>
+                                    <strong>{{admission.patient_name}}</strong>
+                                    <div class="small text-muted">{{admission.patient_phone|default:""}}</div>
+                                </td>
+                                <td>
+                                    <div class="small fw-bold">{{admission.referred_by_doctor.name}}</div>
+                                    <div class="small text-muted">{{admission.referred_by_doctor.specialization}}
+                                    </div>
+                                </td>
+                                <td><span
+                                        class="badge bg-light text-dark">{{admission.patient_referral.agent.username}}</span>
+                                </td>
+                                <td>
+                                    <span
+                                        class="badge {% if admission.admission_type == 'IPD' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{admission.admission_type}}
+                                    </span>
+                                </td>
+                                <td><span class="badge bg-primary opacity-75">{{admission.payment_category.name}}</span>
+                                </td>
+                                <td class="text-end fw-bold">₹ {{admission.total_charges|floatformat:2}}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="tab-pane fade {% if active_tab == 'doctors' %}show active{% endif %}" id="doctors"
+                role="tabpanel">
+                <table id="doctors-table" class="table table-hover align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Doctor Name</th>
+                            <th class="text-center">OPD Count</th>
+                            <th class="text-center">IPD Count</th>
+                            <th class="text-end">Total Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in doctor_revenue %}
+                        <tr>
+                            <td><strong>{{d.referred_by_doctor__name}}</strong></td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{d.opd_count}}</span>
+                            </td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{d.ipd_count}}</span>
+                            </td>
+                            <td class="text-end fw-bold text-primary">₹ {{d.total_revenue|floatformat:2}}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="tab-pane fade {% if active_tab == 'agents' %}show active{% endif %}" id="agents"
+                role="tabpanel">
+                <table id="agents-table" class="table table-hover align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Agent</th>
+                            <th class="text-center">OPD Count</th>
+                            <th class="text-center">IPD Count</th>
+                            <th class="text-end">Total Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in agent_revenue %}
+                        <tr>
+                            <td><strong>{{a.patient_referral__agent__username}}</strong></td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.opd_count}}</span>
+                            </td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.ipd_count}}</span>
+                            </td>
+                            <td class="text-end fw-bold text-success">₹ {{a.total_revenue|floatformat:2}}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="tab-pane fade {% if active_tab == 'category' %}show active{% endif %}" id="category"
+                role="tabpanel">
+                <table id="category-table" class="table table-hover align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Payment Category</th>
+                            <th class="text-center">Patient Count</th>
+                            <th class="text-end">Contribution</th>
+                            <th class="text-center">Share %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in category_stats %}
+                        <tr>
+                            <td><strong>{{cat.payment_category__name|default:"General"}}</strong></td>
+                            <td class="text-center"><span
+                                    class="badge rounded-pill bg-info text-dark">{{cat.patient_count}}</span></td>
+                            <td class="text-end fw-bold text-info">₹ {{cat.total_revenue|floatformat:2}}</td>
+                            <td class="text-center">
+                                {% widthratio cat.total_revenue total_summary.total_revenue 100 as share %}
+                                <div class="progress" style="height: 10px; width: 100px; margin: 0 auto;">
+                                    <div class="progress-bar bg-info" style="width:{{share}}%"></div>
+                                </div>
+                                <small class="text-muted">{{share}}%</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card-title {
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    .nav-tabs .nav-link {
+        border-top: 3px solid transparent;
+        color: #6c757d;
+        padding: 1rem 1.5rem;
+    }
+
+    .nav-tabs .nav-link.active {
+        border-top-color: #0d6efd;
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    .progress {
+        background-color: #e9ecef;
+        border-radius: 5px;
+    }
+</style>
+<script>
+    $(document).ready(function () {
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('.select2').select2({ theme: 'bootstrap-5', width: '100%' });
+        }
+
+        // Function to initialize DataTable for a specific table
+        function initializeDataTable(tableId) {
+            if (typeof $.fn.DataTable !== 'undefined' && !$.fn.DataTable.isDataTable('#' + tableId)) {
+                var dtConfig = {
+                    pageLength: 100,
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                    order: [],
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Search records..."
+                    },
+                    dom: '<"d-flex justify-content-between align-items-center mb-3"lf>t<"d-flex justify-content-between align-items-center mt-3"ip>',
+                    initComplete: function () {
+                        $(this.api().table().container()).find('input[type="search"]').addClass('form-control form-control-sm');
+                        $(this.api().table().container()).find('select').addClass('form-select form-select-sm d-inline-block w-auto');
+                    }
+                };
+
+                $('#' + tableId).DataTable(dtConfig);
+            }
+        }
+
+        // Initialize DataTable for the active tab only (with slight delay to ensure DOM is ready)
+        setTimeout(function () {
+            var activeTab = $('#active_tab_input').val() || 'patients';
+            var activeTableId = activeTab + '-table';
+            initializeDataTable(activeTableId);
+        }, 100);
+
+        // Update hidden input when tab changes and initialize DataTable if needed
+        $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).data('bs-target');
+            var tabName = target.replace('#', '');
+            $('#active_tab_input').val(tabName);
+
+            // Initialize DataTable for the newly active table if not already done
+            var tableId = tabName + '-table';
+            initializeDataTable(tableId);
+
+            // Recalculate DataTable column widths if already initialized
+            if ($.fn.DataTable.isDataTable('#' + tableId)) {
+                $('#' + tableId).DataTable().columns.adjust();
+            }
+        });
+    });
+</script>
+{% endblock %}

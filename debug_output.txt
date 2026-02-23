@@ -1,0 +1,29 @@
+User: amit_field | is_staff: False | role: advisor
+
+=== AREAS WITH amit_field AS AGENT ===
+  Area: RajKishore Nagar (ID: 1) | Doctors: 2
+  Area: West End (ID: 4) | Doctors: 5
+Total areas: 2
+
+=== ALL ASSIGNMENTS FOR amit_field ===
+  Assignment: RajKishore Nagar | Area.agent=amit_field | Date: 2026-02-18 06:55:24.713540+00:00
+  Assignment: West End | Area.agent=amit_field | Date: 2026-02-18 06:36:51.738918+00:00
+Total assignments: 2
+
+=== ALL AREAS (agent field) ===
+  RajKishore Nagar (ID: 1) -> agent: amit_field
+  Bhojpur (ID: 2) -> agent: None
+  Downtown (ID: 6) -> agent: None
+  North Zone (ID: 3) -> agent: None
+  Sector 5 (ID: 5) -> agent: None
+  West End (ID: 4) -> agent: amit_field
+
+=== SIMULATED API QUERY ===
+Doctors found (before exclusions): 7
+  ID: 1 | Doctor Ram | Area: RajKishore Nagar
+  ID: 2 | Doctor Sam | Area: RajKishore Nagar
+  ID: 5 | Dr. Deshmukh 2 | Area: West End
+  ID: 14 | Dr. Kapoor 1 | Area: West End
+  ID: 16 | Dr. Deshmukh 3 | Area: West End
+  ID: 17 | Dr. Deshmukh 4 | Area: West End
+  ID: 25 | Dr. Kapoor 2 | Area: West End

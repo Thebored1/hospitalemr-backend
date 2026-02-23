@@ -1,0 +1,185 @@
+{% extends 'portal/base.html' %}
+{% block title %}Trip #{{ trip.id }} Details{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:trip_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Trips
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-car-front me-2"></i>Trip #{{ trip.id }}</h2>
+    <div>
+        {% if trip.status == 'ONGOING' %}
+        <span class="badge badge-ongoing fs-6">Ongoing</span>
+        {% else %}
+        <span class="badge badge-completed fs-6">Completed</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Trip Info -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Trip Information
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th>Agent:</th>
+                        <td>
+                            <i class="bi bi-person-circle me-1"></i>
+                            {{ trip.agent.get_full_name|default:trip.agent.username }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Start Time:</th>
+                        <td>{{ trip.start_time|date:"M d, Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>End Time:</th>
+                        <td>
+                            {% if trip.status == 'COMPLETED' and trip.end_time %}
+                            {{ trip.end_time|date:"M d, Y H:i" }}
+                            {% else %}
+                            <span class="text-warning">In Progress</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Total KM:</th>
+                        <td>{{ trip.total_kilometers|floatformat:1 }} km</td>
+                    </tr>
+                    <tr>
+                        <th>Expenses:</th>
+                        <td>{{ trip.additional_expenses|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctors Visited -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-person-badge me-2"></i>Doctors Visited ({{ trip.doctor_referrals.count }})</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Doctor Name</th>
+                            <th>Specialization</th>
+                            <th>Contact</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doctor in trip.doctor_referrals.all %}
+                        <tr>
+                            <td><strong>{{ doctor.name }}</strong></td>
+                            <td>{{ doctor.specialization|default:"-" }}</td>
+                            <td>{{ doctor.contact_number|default:"-" }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ doctor.status }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'portal:doctor_detail' doctor.pk %}"
+                                    class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                No doctors were visited on this trip.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Overnight Stays -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-building me-2"></i>Overnight Stays ({{ trip.overnight_stays.count }})
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Hotel Name</th>
+                            <th>Address</th>
+                            <th>Bill/Receipt</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stay in trip.overnight_stays.all %}
+                        <tr>
+                            <td><strong>{{ stay.hotel_name }}</strong></td>
+                            <td>{{ stay.hotel_address|truncatewords:10 }}</td>
+                            <td>
+                                {% if stay.bill_image %}
+                                <a href="{{ stay.bill_image.url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-receipt me-1"></i>View
+                                </a>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ stay.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">
+                                No overnight stays recorded for this trip.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Odometer Images (Full Width at Bottom) -->
+{% if trip.odometer_start_image or trip.odometer_end_image %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-speedometer me-2"></i>Odometer Images
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if trip.odometer_start_image %}
+                    <div class="col-md-6 text-center">
+                        <h6 class="text-muted mb-2"><i class="bi bi-play-circle me-1"></i>Start</h6>
+                        <img src="{{ trip.odometer_start_image.url }}" alt="Odometer Start" class="img-fluid rounded"
+                            style="max-height: 300px;">
+                    </div>
+                    {% endif %}
+                    {% if trip.odometer_end_image %}
+                    <div class="col-md-6 text-center">
+                        <h6 class="text-muted mb-2"><i class="bi bi-stop-circle me-1"></i>End</h6>
+                        <img src="{{ trip.odometer_end_image.url }}" alt="Odometer End" class="img-fluid rounded"
+                            style="max-height: 300px;">
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

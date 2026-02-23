@@ -1,0 +1,416 @@
+{% extends 'portal/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:admission_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Admissions
+    </a>
+</div>
+
+<h2 class="mb-4"><i class="bi bi-hospital me-2"></i>{{ title }}</h2>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="row g-4">
+        <!-- Patient Information -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-person me-2"></i>Patient Information
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="{{ form.patient_name.id_for_label }}" class="form-label">
+                            Patient Name <span class="text-danger">*</span>
+                        </label>
+                        {{ form.patient_name }}
+                        {{ form.patient_referral }}
+                        <datalist id="patient-referral-list">
+                            {% for pr in patient_referrals %}
+                            <option value="{{ pr.patient_name }}" data-id="{{ pr.id }}"
+                                data-phone="{{ pr.phone|default_if_none:'' }}"
+                                data-age="{{ pr.age|default_if_none:'' }}"
+                                data-gender="{{ pr.gender|default_if_none:'' }}"
+                                data-agent="{{ pr.agent.get_full_name|default:pr.agent.username }}">
+                                Agent: {{ pr.agent.username }} | {{ pr.illness }}
+                            </option>
+                            {% endfor %}
+                        </datalist>
+                        {% if form.patient_name.errors %}<div class="text-danger small">{{ form.patient_name.errors.0 }}
+                        </div>{% endif %}
+                    </div>
+
+                    {# Explicitly render hidden field so ID is guaranteed for JS #}
+                    <input type="hidden" name="commission_amount" id="id_commission_amount"
+                        value="{{ form.commission_amount.value|default:0.00 }}">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone</label>
+                            {{ form.patient_phone }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Age</label>
+                            {{ form.patient_age }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Gender</label>
+                            {{ form.patient_gender }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        {{ form.patient_address }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Referral & Admission Type -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-link-45deg me-2"></i>Referral & Admission
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Referred by Doctor</label>
+                        <div class="input-group">
+                            {{ form.referred_by_doctor }}
+                            <a href="{% url 'portal:doctor_create' %}" class="btn btn-outline-primary"
+                                title="Add New Doctor">
+                                <i class="bi bi-plus-lg"></i>
+                            </a>
+                        </div>
+                        <div class="form-text">Links to agent for commission tracking</div>
+                        <div id="referred-by-agent-display" class="alert alert-info py-2 mt-2 d-none">
+                            <i class="bi bi-person-badge me-2"></i>
+                            Referred By Agent: <span class="fw-bold" id="agent-name-span"></span>
+                        </div>
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Admission Type <span class="text-danger">*</span></label>
+                            {{ form.admission_type }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Payment Category <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                {{ form.payment_category }}
+                                <a href="{% url 'portal:payment_category_create' %}" class="btn btn-outline-primary"
+                                    title="Add New Payment Category">
+                                    <i class="bi bi-plus-lg"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Standard Discount</label>
+                            <div class="form-control bg-light">
+                                <span id="discount-display" class="fw-bold text-success">0%</span>
+                                <small class="text-muted ms-2">(Applied to total bill)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charges Breakdown -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <i class="bi bi-currency-rupee me-2"></i>Charge Breakdown & Commission
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 25%">Charge Type</th>
+                            <th style="width: 25%">Amount (₹)</th>
+                            <th style="width: 15%">Commission %</th>
+                            <th style="width: 20%">Commission (₹)</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Bed Charges</td>
+                            <td>{{ form.bed_charges }}</td>
+                            <td><span id="rate-bed" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-bed" class="fw-bold text-success">0.00</span></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Nursing Charges</td>
+                            <td>{{ form.nursing_charges }}</td>
+                            <td><span id="rate-nursing" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-nursing" class="fw-bold text-success">0.00</span></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Doctor Consultation</td>
+                            <td>{{ form.doctor_consultation_charges }}</td>
+                            <td><span id="rate-doctor" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-doctor" class="fw-bold text-success">0.00</span></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Investigation</td>
+                            <td>{{ form.investigation_charges }}</td>
+                            <td><span id="rate-investigation" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-investigation" class="fw-bold text-success">0.00</span></td>
+                            <td>{{ form.investigation_type }}</td>
+                        </tr>
+                        <tr>
+                            <td>Procedural/Surgical</td>
+                            <td>{{ form.procedural_surgical_charges }}</td>
+                            <td><span id="rate-procedural" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-procedural" class="fw-bold text-success">0.00</span></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Anaesthesia</td>
+                            <td>{{ form.anaesthesia_charges }}</td>
+                            <td><span id="rate-anaesthesia" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-anaesthesia" class="fw-bold text-success">0.00</span></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Surgeon Charges</td>
+                            <td>{{ form.surgeon_charges }}</td>
+                            <td><span id="rate-surgeon" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-surgeon" class="fw-bold text-success">0.00</span></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Other Charges</td>
+                            <td>{{ form.other_charges }}</td>
+                            <td><span id="rate-other" class="badge bg-info text-dark">0%</span></td>
+                            <td><span id="comm-other" class="fw-bold text-success">0.00</span></td>
+                            <td>{{ form.other_charges_description }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td class="fw-bold text-end">Total</td>
+                            <td class="fw-bold" id="total-charges">0.00</td>
+                            <td></td>
+                            <td class="fw-bold text-success" id="total-commission">0.00</td>
+                            <td>
+                                <small class="text-muted">Auto-calculated</small>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check-lg me-1"></i>{{ button_text }}
+        </button>
+        <a href="{% url 'portal:admission_list' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+    </div>
+</form>
+
+<script>
+    (function () {
+        const nameInput = document.getElementById("{{ form.patient_name.id_for_label }}");
+        const referralInput = document.getElementById("{{ form.patient_referral.id_for_label }}");
+        const phoneInput = document.getElementById("{{ form.patient_phone.id_for_label }}");
+        const ageInput = document.getElementById("{{ form.patient_age.id_for_label }}");
+        const genderInput = document.getElementById("{{ form.patient_gender.id_for_label }}");
+        const list = document.getElementById("patient-referral-list");
+
+        if (!nameInput || !list || !referralInput) {
+            return;
+        }
+
+        function clearReferralLink() {
+            referralInput.value = "";
+            applyReferral(null); // Reset UI
+        }
+
+        function applyReferral(option) {
+            if (!option) {
+                clearReferralLink();
+                return;
+            }
+            referralInput.value = option.dataset.id || "";
+            if (phoneInput && option.dataset.phone) phoneInput.value = option.dataset.phone;
+            if (ageInput && option.dataset.age) ageInput.value = option.dataset.age;
+            if (genderInput && option.dataset.gender) genderInput.value = option.dataset.gender;
+
+            // Handle Agent Info & Doctor Field
+            const doctorSelect = document.getElementById("{{ form.referred_by_doctor.id_for_label }}");
+            const agentDisplay = document.getElementById("referred-by-agent-display");
+            const agentNameSpan = document.getElementById("agent-name-span");
+
+            if (option.dataset.agent) {
+                // Referral selected: Disable doctor field, clear it, show agent
+                if (doctorSelect) {
+                    doctorSelect.value = "";
+                    doctorSelect.disabled = true;
+                }
+                if (agentDisplay && agentNameSpan) {
+                    agentNameSpan.innerText = option.dataset.agent;
+                    agentDisplay.classList.remove("d-none");
+                }
+            } else {
+                // No referral (or manual clear): Enable doctor field, hide agent display
+                if (doctorSelect) {
+                    doctorSelect.disabled = false;
+                }
+                if (agentDisplay) {
+                    agentDisplay.classList.add("d-none");
+                }
+            }
+        }
+
+        nameInput.addEventListener("input", function () {
+            const value = nameInput.value.trim();
+            const options = list.querySelectorAll("option");
+            let matched = null;
+            options.forEach((opt) => {
+                if (opt.value === value) {
+                    matched = opt;
+                }
+            });
+            applyReferral(matched);
+        });
+    })();
+
+    // Commission Calculation Logic
+    (function () {
+        // IDs for inputs (Django default IDs)
+        const inputs = {
+            doctor: document.getElementById('id_referred_by_doctor'),
+            category: document.getElementById('id_payment_category'),
+            bed: document.getElementById('id_bed_charges'),
+            nursing: document.getElementById('id_nursing_charges'),
+            doctor_consultation: document.getElementById('id_doctor_consultation_charges'),
+            investigation: document.getElementById('id_investigation_charges'),
+            procedural: document.getElementById('id_procedural_surgical_charges'),
+            anaesthesia: document.getElementById('id_anaesthesia_charges'),
+            surgeon: document.getElementById('id_surgeon_charges'),
+            other: document.getElementById('id_other_charges'),
+            commission_field: document.getElementById('id_commission_amount')
+        };
+
+        let rates = {
+            bed: 0, nursing: 0, doctor: 0, investigation: 0,
+            procedural: 0, anaesthesia: 0, surgeon: 0, other: 0,
+            discount: 0 // Added discount rate
+        };
+
+        function fetchRates() {
+            const doctorId = inputs.doctor.value;
+            const category = inputs.category.value;
+
+            if (!doctorId || !category) return;
+
+            console.log(`Fetching rates for Doctor: ${doctorId}, Category: ${category}`);
+
+            fetch(`/portal/api/commission-rates/?doctor_id=${doctorId}&category=${category}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error("API Error:", data.error);
+                        return;
+                    }
+                    console.log("Received Rates:", data);
+
+                    rates = {
+                        bed: parseFloat(data.bed_charges_rate || 0),
+                        nursing: parseFloat(data.nursing_charges_rate || 0),
+                        doctor: parseFloat(data.doctor_consultation_charges_rate || 0),
+                        investigation: parseFloat(data.investigation_charges_rate || 0),
+                        procedural: parseFloat(data.procedural_surgical_charges_rate || 0),
+                        anaesthesia: parseFloat(data.anaesthesia_charges_rate || 0),
+                        surgeon: parseFloat(data.surgeon_charges_rate || 0),
+                        other: parseFloat(data.other_charges_rate || 0),
+                        discount: parseFloat(data.discount_percentage || 0) // Fetch discount %
+                    };
+                    updateDisplay();
+                    calculateTotals();
+                })
+                .catch(err => console.error('Error fetching rates:', err));
+        }
+
+        function updateDisplay() {
+            document.getElementById('rate-bed').innerText = rates.bed + '%';
+            document.getElementById('rate-nursing').innerText = rates.nursing + '%';
+            document.getElementById('rate-doctor').innerText = rates.doctor + '%';
+            document.getElementById('rate-investigation').innerText = rates.investigation + '%';
+            document.getElementById('rate-procedural').innerText = rates.procedural + '%';
+            document.getElementById('rate-anaesthesia').innerText = rates.anaesthesia + '%';
+            document.getElementById('rate-surgeon').innerText = rates.surgeon + '%';
+            document.getElementById('rate-other').innerText = rates.other + '%';
+
+            // Show discount hint - removed as it is now main display
+        }
+
+        function calculateCommission(amount, rate) {
+            return (parseFloat(amount || 0) * (rate / 100));
+        }
+
+        function calculateTotals() {
+            let totalCharges = 0;
+            let totalCommission = 0;
+
+            const fields = ['bed', 'nursing', 'doctor_consultation', 'investigation', 'procedural', 'anaesthesia', 'surgeon', 'other'];
+
+            fields.forEach(key => {
+                const amount = parseFloat(inputs[key].value || 0);
+                const commission = calculateCommission(amount, rates[key === 'doctor_consultation' ? 'doctor' : key]);
+
+                // Update row commission display
+                let commKey = key;
+                if (key === 'doctor_consultation') commKey = 'doctor';
+
+                const commSpan = document.getElementById(`comm-${commKey}`);
+                if (commSpan) commSpan.innerText = commission.toFixed(2);
+
+                totalCharges += amount;
+                totalCommission += commission;
+            });
+
+            document.getElementById('total-charges').innerText = totalCharges.toFixed(2);
+            document.getElementById('total-commission').innerText = totalCommission.toFixed(2);
+            inputs.commission_field.value = totalCommission.toFixed(2);
+
+            // Update discount display
+            const discountDisplay = document.getElementById('discount-display');
+            if (discountDisplay) {
+                discountDisplay.innerText = rates.discount + '%';
+            }
+        }
+
+        // Event Listeners
+        if (inputs.doctor) inputs.doctor.addEventListener('change', fetchRates);
+        if (inputs.category) inputs.category.addEventListener('change', fetchRates);
+
+        ['bed', 'nursing', 'doctor_consultation', 'investigation', 'procedural', 'anaesthesia', 'surgeon', 'other'].forEach(key => {
+            if (inputs[key]) inputs[key].addEventListener('input', calculateTotals);
+        });
+
+        // Initial call if editing
+        if (inputs.doctor.value && inputs.category.value) {
+            console.log("Initial load fetch");
+            fetchRates();
+        } else {
+            // Ensure hidden field has a default value (even if 0) to prevent 'required' error
+            if (inputs.commission_field) {
+                inputs.commission_field.value = "0.00";
+            }
+        }
+    })();
+</script>
+{% endblock %}

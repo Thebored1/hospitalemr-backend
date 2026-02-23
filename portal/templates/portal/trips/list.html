@@ -1,0 +1,105 @@
+{% extends 'portal/base.html' %}
+{% block title %}Trips{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-car-front me-2"></i>Trips</h2>
+    <span class="badge bg-secondary fs-6">{{ trips.count }} total</span>
+</div>
+
+<div class="card mb-4 bg-light border-0">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <input type="text" name="q" class="form-control" placeholder="Search ID, location..."
+                    value="{{ request.GET.q }}">
+            </div>
+            <div class="col-md-3">
+                <select name="agent" class="form-select">
+                    <option value="">All Agents</option>
+                    {% for agent in agents %}
+                    <option value="{{ agent.pk }}" {% if request.GET.agent == agent.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ agent.get_full_name|default:agent.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="ONGOING" {% if request.GET.status == 'ONGOING' %}selected{% endif %}>Ongoing</option>
+                    <option value="COMPLETED" {% if request.GET.status == 'COMPLETED' %}selected{% endif %}>Completed
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+                <a href="{% url 'portal:trip_list' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Note:</strong> Trips are created by agents via the mobile app. This view shows which doctors were visited on
+    each trip.
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Agent</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                    <th>Doctors Visited</th>
+                    <th>KM</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trip in trips %}
+                <tr>
+                    <td><strong>#{{ trip.id }}</strong></td>
+                    <td>
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ trip.agent.get_full_name|default:trip.agent.username }}
+                    </td>
+                    <td>{{ trip.start_time|date:"M d, Y H:i" }}</td>
+                    <td>{{ trip.end_time|date:"M d, Y H:i"|default:"-" }}</td>
+                    <td>
+                        {% if trip.status == 'ONGOING' %}
+                        <span class="badge badge-ongoing">Ongoing</span>
+                        {% else %}
+                        <span class="badge badge-completed">Completed</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-info">{{ trip.doctor_count }} doctors</span>
+                    </td>
+                    <td>{{ trip.total_kilometers|floatformat:1 }} km</td>
+                    <td>
+                        <a href="{% url 'portal:trip_detail' trip.pk %}" class="btn btn-sm btn-outline-primary"
+                            title="View Details">
+                            <i class="bi bi-eye me-1"></i>View
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        No trips yet. Trips are created by agents via the mobile app.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

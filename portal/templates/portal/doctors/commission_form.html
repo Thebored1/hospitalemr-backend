@@ -1,0 +1,138 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Manage Commissions: {{ doctor.name }}</h5>
+                <a href="{% url 'portal:doctor_list' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Doctors
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ formset.management_form }}
+
+                    <div class="row g-0">
+                        <!-- Sidebar -->
+                        <div class="col-md-3 border-end" style="min-height: 500px; background: #f8f9fa;">
+                            <div class="p-3">
+                                <h6 class="text-muted text-uppercase small fw-bold mb-3">
+                                    <i class="bi bi-tags me-1"></i>Payment Categories
+                                </h6>
+                                <div class="nav flex-column nav-pills" id="category-tabs">
+                                    {% for form in formset %}
+                                    <button type="button"
+                                        class="nav-link text-start mb-1 {% if forloop.first %}active{% endif %}"
+                                        data-target="category-{{ forloop.counter0 }}"
+                                        onclick="switchCategory(this, 'category-{{ forloop.counter0 }}')">
+                                        <i class="bi bi-credit-card me-2"></i>{{ form.instance.payment_category.name }}
+                                    </button>
+                                    {% endfor %}
+                                </div>
+
+                                <hr>
+                                <a href="{% url 'portal:payment_category_create' %}?next={% url 'portal:doctor_commission' doctor.pk %}"
+                                    class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="bi bi-plus-lg me-1"></i>Add New Category
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Main Content: one panel per category -->
+                        <div class="col-md-9">
+                            {% for form in formset %}
+                            <div class="category-panel p-4 {% if not forloop.first %}d-none{% endif %}"
+                                id="category-{{ forloop.counter0 }}">
+
+                                {% for hidden in form.hidden_fields %}
+                                {{ hidden }}
+                                {% endfor %}
+
+                                <h5 class="mb-4">
+                                    <span class="badge bg-primary me-2">{{ form.instance.payment_category.name }}</span>
+                                    Commission & Discount Settings
+                                </h5>
+
+                                <!-- Discount -->
+                                <div class="mb-4 p-3 bg-warning bg-opacity-10 rounded border border-warning">
+                                    <label class="form-label fw-bold text-dark">
+                                        <i class="bi bi-percent me-1"></i>Standard Discount %
+                                    </label>
+                                    {{ form.discount_percentage }}
+                                    <small class="text-muted d-block mt-1">Applied to total bill for this
+                                        category</small>
+                                </div>
+
+                                <h6 class="text-muted mb-3">
+                                    <i class="bi bi-calculator me-1"></i>Commission Rates (%)
+                                </h6>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Bed Charges</label>
+                                        {{ form.bed_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Nursing Charges</label>
+                                        {{ form.nursing_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Doctor Consultation</label>
+                                        {{ form.doctor_consultation_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Investigation</label>
+                                        {{ form.investigation_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Procedural/Surgical</label>
+                                        {{ form.procedural_surgical_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Anaesthesia</label>
+                                        {{ form.anaesthesia_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Surgeon Charges</label>
+                                        {{ form.surgeon_charges_rate }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label small fw-semibold">Other Charges</label>
+                                        {{ form.other_charges_rate }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+
+                            <!-- Save button row -->
+                            <div class="p-4 border-top bg-light">
+                                <div class="d-flex justify-content-end">
+                                    <a href="{% url 'portal:doctor_list' %}" class="btn btn-secondary me-2">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-lg me-1"></i>Save All Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchCategory(btn, targetId) {
+        // Hide all panels
+        document.querySelectorAll('.category-panel').forEach(p => p.classList.add('d-none'));
+        // Show target panel
+        document.getElementById(targetId).classList.remove('d-none');
+        // Update active nav
+        document.querySelectorAll('#category-tabs .nav-link').forEach(n => n.classList.remove('active'));
+        btn.classList.add('active');
+    }
+</script>
+{% endblock %}
