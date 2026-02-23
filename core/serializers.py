@@ -146,6 +146,8 @@ class TripSerializer(serializers.ModelSerializer):
 
 class PatientReferralSerializer(serializers.ModelSerializer):
     agent_details = UserSerializer(source='agent', read_only=True)
+    referred_by_doctor_details = DoctorReferralSerializer(source='referred_by_doctor', read_only=True)
+    referred_to_doctor_details = DoctorReferralSerializer(source='referred_to_doctor', read_only=True)
     status = serializers.CharField(required=False)
 
     class Meta:

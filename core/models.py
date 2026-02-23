@@ -259,6 +259,9 @@ class PatientReferral(models.Model):
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     is_urgent = models.BooleanField(default=False)
+    
+    referred_by_doctor = models.ForeignKey('DoctorReferral', on_delete=models.SET_NULL, null=True, blank=True, related_name='patients_referred_out')
+    referred_to_doctor = models.ForeignKey('DoctorReferral', on_delete=models.SET_NULL, null=True, blank=True, related_name='patients_referred_in')
 
     class Meta:
         ordering = ['-reported_on']
@@ -307,6 +310,14 @@ class Admission(models.Model):
         blank=True,
         related_name='admissions',
         help_text='Doctor who referred this patient (linked to agent for commission tracking)'
+    )
+    referred_to_doctor = models.ForeignKey(
+        'DoctorReferral', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='admissions_received',
+        help_text='Internal doctor handling the admission'
     )
     
     # Admission Details

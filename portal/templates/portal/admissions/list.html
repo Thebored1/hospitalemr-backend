@@ -48,20 +48,23 @@
     <div class="card-body py-3">
         <form method="get" class="row g-3 align-items-center">
             <div class="col-md-3">
-                <input type="text" name="q" class="form-control" placeholder="Search patient, doctor..." value="{{ request.GET.q }}">
+                <input type="text" name="q" class="form-control" placeholder="Search patient, doctor..."
+                    value="{{ request.GET.q }}">
             </div>
             <div class="col-md-3">
                 <select name="type" class="form-select">
                     <option value="">All Types</option>
-                    <option value="OPD" {% if request.GET.type == 'OPD' %}selected{% endif %}>OPD</option>
-                    <option value="IPD" {% if request.GET.type == 'IPD' %}selected{% endif %}>IPD</option>
+                    <option value="OPD" {% if request.GET.type=='OPD' %}selected{% endif %}>OPD</option>
+                    <option value="IPD" {% if request.GET.type=='IPD' %}selected{% endif %}>IPD</option>
                 </select>
             </div>
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="ADMITTED" {% if request.GET.status == 'ADMITTED' %}selected{% endif %}>Admitted</option>
-                    <option value="DISCHARGED" {% if request.GET.status == 'DISCHARGED' %}selected{% endif %}>Discharged</option>
+                    <option value="ADMITTED" {% if request.GET.status=='ADMITTED' %}selected{% endif %}>Admitted
+                    </option>
+                    <option value="DISCHARGED" {% if request.GET.status=='DISCHARGED' %}selected{% endif %}>Discharged
+                    </option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -83,6 +86,7 @@
                     <th>Patient Name</th>
                     <th>Type</th>
                     <th>Referred By</th>
+                    <th>Referred To</th>
                     <th>Agent</th>
                     <th>Status</th>
                     <th>Total Charges</th>
@@ -113,6 +117,13 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if admission.referred_to_doctor %}
+                        <span class="badge bg-secondary">{{ admission.referred_to_doctor.name }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {% if admission.referred_by_doctor and admission.referred_by_doctor.agent %}
                         <i class="bi bi-person-circle me-1"></i>
                         {{ admission.referred_by_doctor.agent.username }}
@@ -136,15 +147,18 @@
                     <td>{{ admission.admission_date|date:"M d, Y" }}</td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <a href="{% url 'portal:admission_detail' admission.pk %}" class="btn btn-outline-primary" title="View Details">
+                            <a href="{% url 'portal:admission_detail' admission.pk %}" class="btn btn-outline-primary"
+                                title="View Details">
                                 <i class="bi bi-eye"></i>
                             </a>
-                            <a href="{% url 'portal:admission_edit' admission.pk %}" class="btn btn-outline-secondary" title="Edit">
+                            <a href="{% url 'portal:admission_edit' admission.pk %}" class="btn btn-outline-secondary"
+                                title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
                         </div>
                         {% if admission.status == 'ADMITTED' %}
-                        <form method="post" action="{% url 'portal:admission_discharge' admission.pk %}" class="d-inline ms-1">
+                        <form method="post" action="{% url 'portal:admission_discharge' admission.pk %}"
+                            class="d-inline ms-1">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-outline-success btn-sm" title="Dismiss">
                                 <i class="bi bi-check2-circle"></i>
@@ -155,7 +169,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="text-center text-muted py-4">
+                    <td colspan="10" class="text-center text-muted py-4">
                         No admissions yet. <a href="{% url 'portal:admission_create' %}">Create one</a>
                     </td>
                 </tr>

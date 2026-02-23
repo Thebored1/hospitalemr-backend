@@ -252,11 +252,19 @@ class AdmissionForm(forms.ModelForm):
     )
     
     referred_by_doctor = forms.ModelChoiceField(
-        queryset=DoctorReferral.objects.select_related('agent').all(),
+        queryset=DoctorReferral.objects.filter(is_internal=False).select_related('agent').all(),
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Referred by Doctor',
-        help_text='Select the doctor who referred this patient (links to agent for commission)'
+        label='Referred by (External Doctor)',
+        help_text='Select the external doctor who referred this patient'
+    )
+
+    referred_to_doctor = forms.ModelChoiceField(
+        queryset=DoctorReferral.objects.filter(is_internal=True).all(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='Referred to (Internal Doctor)',
+        help_text='Select the internal hospital doctor managing this admission'
     )
     
     class Meta:
@@ -265,7 +273,7 @@ class AdmissionForm(forms.ModelForm):
             # Patient Info
             'patient_name', 'patient_phone', 'patient_age', 'patient_gender', 'patient_address', 'patient_referral',
             # Referral
-            'referred_by_doctor', 
+            'referred_by_doctor', 'referred_to_doctor',
             # Admission
             'admission_type', 'payment_category', 'commission_amount',
             # Charges
@@ -301,6 +309,7 @@ class AdmissionForm(forms.ModelForm):
         
         # Format doctor choices to show agent info
         self.fields['referred_by_doctor'].label_from_instance = lambda obj: f"{obj.name} (Agent: {obj.agent.username})" if obj.agent else obj.name
+        self.fields['referred_to_doctor'].label_from_instance = lambda obj: obj.name
 
 
 class DoctorCommissionForm(forms.ModelForm):
