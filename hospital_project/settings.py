@@ -39,7 +39,7 @@ if RENDER_EXTERNAL_HOSTNAME:
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://definite-toucan-highly.ngrok-free.app',
+    'https://hospitalemr-backend.onrender.com',
 ]
 
 
