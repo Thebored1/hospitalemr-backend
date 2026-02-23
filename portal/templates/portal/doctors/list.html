@@ -22,9 +22,9 @@
             <div class="col-md-4">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="Assigned" {% if request.GET.status == 'Assigned' %}selected{% endif %}>Assigned
+                    <option value="Assigned" {% if request.GET.status=='Assigned' %}selected{% endif %}>Assigned
                     </option>
-                    <option value="Not Assigned" {% if request.GET.status == 'Not Assigned' %}selected{% endif %}>Not
+                    <option value="Not Assigned" {% if request.GET.status=='Not Assigned' %}selected{% endif %}>Not
                         Assigned</option>
                 </select>
             </div>
@@ -59,7 +59,9 @@
                         <strong>{{ doctor.name }}</strong>
                     </td>
                     <td>
-                        {% if doctor.address_details %}
+                        {% if doctor.is_internal %}
+                        <span class="text-muted"><i class="bi bi-building me-1"></i>Internal</span>
+                        {% elif doctor.address_details %}
                         {{ doctor.address_details.area.name }}
                         {% else %}
                         <span class="text-muted">-</span>
@@ -68,7 +70,9 @@
                     <td>{{ doctor.specialization|default:"-" }}</td>
                     <td>{{ doctor.contact_number|default:"-" }}</td>
                     <td>
-                        {% if doctor.is_assigned %}
+                        {% if doctor.is_internal %}
+                        <span class="badge bg-secondary">Internal</span>
+                        {% elif doctor.is_assigned %}
                         <span class="badge bg-success">Assigned</span>
                         {% else %}
                         <span class="badge bg-danger">Not Assigned</span>
