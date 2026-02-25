@@ -136,12 +136,7 @@ class AddressForm(forms.ModelForm):
 
     class Meta:
         model = Address
-        fields = ['area', 'street', 'pincode', 'landmark']
-        widgets = {
-            'street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Street/Building'}),
-            'pincode': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Pincode'}),
-            'landmark': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Near...'}),
-        }
+        fields = ['area']
 
 
 class DoctorForm(forms.ModelForm):

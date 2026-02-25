@@ -1007,23 +1007,35 @@ class AgentAssignmentListView(PortalMixin, ListView):
         # Calculate completion status using per-assignment visit tracking
         from core.models import AgentAssignmentDoctorStatus
         for assignment in context['assignments']:
-            # Get all doctor statuses for this specific assignment
-            statuses = AgentAssignmentDoctorStatus.objects.filter(
-                assignment=assignment,
-                is_active=True  # Only count enabled doctors
-            )
+            # Get unique doctors currently in this area
+            from core.models import DoctorReferral
+            raw_area_doctors = DoctorReferral.objects.filter(address_details__area=assignment.area, is_internal=False).order_by('-created_at')
+            seen_names = set()
+            area_doctors = []
+            for d in raw_area_doctors:
+                name_key = d.name.lower().strip()
+                if name_key not in seen_names:
+                    seen_names.add(name_key)
+                    area_doctors.append(d)
+                    
+            total_area_doctors = len(area_doctors)
             
-            total_enabled = statuses.count()
-            visited_count = statuses.filter(is_visited=True).count()
+            # Now properly calculate visited and total enabled based ON the deduplicated doctors list
+            visited_count = 0
+            total_enabled = 0
             
-            # If no statuses exist yet (legacy data), fall back to area doctor count
-            if total_enabled == 0:
-                area_doctors = DoctorReferral.objects.filter(
-                    address_details__area=assignment.area
-                ).count()
-                total_enabled = area_doctors
-                visited_count = 0
+            for doctor in area_doctors:
+                status_obj, created = AgentAssignmentDoctorStatus.objects.get_or_create(
+                    assignment=assignment,
+                    doctor=doctor,
+                    defaults={'is_active': True, 'is_visited': False}
+                )
+                if status_obj.is_active:
+                    total_enabled += 1
+                    if status_obj.is_visited:
+                        visited_count += 1
             
+            # If for some reason all are disabled, show 0/0.
             assignment.is_complete = (total_enabled > 0 and visited_count == total_enabled)
             assignment.completion_stats = f"{visited_count}/{total_enabled}"
             
@@ -1058,17 +1070,33 @@ class AgentAssignmentCreateView(PortalMixin, CreateView):
         # Auto-create fresh doctor status entries for this assignment
         # Each assignment starts with all doctors unvisited
         from core.models import AgentAssignmentDoctorStatus
-        doctors_in_area = DoctorReferral.objects.filter(
-            address_details__area=area
-        )
+        raw_doctors_in_area = DoctorReferral.objects.filter(
+            address_details__area=area,
+            is_internal=False
+        ).order_by('-created_at')
+        
+        seen_names = set()
+        doctors_in_area = []
+        for d in raw_doctors_in_area:
+            name_key = d.name.lower().strip()
+            if name_key not in seen_names:
+                seen_names.add(name_key)
+                doctors_in_area.append(d)
+                
         for doctor in doctors_in_area:
             AgentAssignmentDoctorStatus.objects.get_or_create(
                 assignment=assignment,
                 doctor=doctor,
                 defaults={'is_active': True, 'is_visited': False}
             )
+            
+            # Reset global doctor status to Assigned so the portal doesn't show confusing 
+            # "Referred" but "Pending Visit" statuses
+            if doctor.status != 'Assigned':
+                doctor.status = 'Assigned'
+                doctor.save(update_fields=['status'])
         
-        messages.success(self.request, f"Assigned {agent.username} to {area.name} ({doctors_in_area.count()} doctors)")
+        messages.success(self.request, f"Assigned {agent.username} to {area.name} ({len(doctors_in_area)} doctors)")
         return response
 
 
@@ -1085,10 +1113,19 @@ class AgentAssignmentDetailView(PortalMixin, DetailView):
         context = super().get_context_data(**kwargs)
         assignment = self.object
         
-        # Get doctors in this area
-        doctors = DoctorReferral.objects.filter(
-            address_details__area=assignment.area
+        # Get doctors in this area, deduplicated by name
+        raw_doctors = DoctorReferral.objects.filter(
+            address_details__area=assignment.area,
+            is_internal=False
         ).select_related('agent', 'trip', 'address_details').order_by('-created_at')
+        
+        seen_names = set()
+        doctors = []
+        for d in raw_doctors:
+            name_key = d.name.lower().strip()
+            if name_key not in seen_names:
+                seen_names.add(name_key)
+                doctors.append(d)
         
         # Annotate each doctor with their disabled status for this assignment
         from core.models import AgentAssignmentDoctorStatus
@@ -1099,12 +1136,16 @@ class AgentAssignmentDetailView(PortalMixin, DetailView):
                     doctor=doctor
                 )
                 doctor.is_disabled_in_assignment = not status.is_active
+                doctor.is_visited_in_assignment = status.is_visited
+                doctor.visit_trip_in_assignment = status.visit_trip
             except AgentAssignmentDoctorStatus.DoesNotExist:
                 # If no status record exists, doctor is enabled by default
                 doctor.is_disabled_in_assignment = False
+                doctor.is_visited_in_assignment = False
+                doctor.visit_trip_in_assignment = None
         
         context['doctors'] = doctors
-        context['doctor_count'] = doctors.count()
+        context['doctor_count'] = len(doctors)
         return context
 
 

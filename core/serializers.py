@@ -38,8 +38,8 @@ class AreaSerializer(serializers.ModelSerializer):
 
 class AddressSerializer(serializers.ModelSerializer):
     area_details = AreaSerializer(source='area', read_only=True)
-    area_id = serializers.PrimaryKeyRelatedField(
-        queryset=Area.objects.all(), source='area', write_only=True
+    area = serializers.PrimaryKeyRelatedField(
+        queryset=Area.objects.all(), write_only=True, required=False
     )
     class Meta:
         model = Address
@@ -47,7 +47,7 @@ class AddressSerializer(serializers.ModelSerializer):
 
 class DoctorReferralSerializer(serializers.ModelSerializer):
     agent_details = UserSerializer(source='agent', read_only=True)
-    address_details = AddressSerializer(required=False)
+    address_details = AddressSerializer(required=False, allow_null=True)
     
     class Meta:
         model = DoctorReferral
@@ -64,6 +64,8 @@ class DoctorReferralSerializer(serializers.ModelSerializer):
             # Create a mutable copy if it's a QueryDict
             if hasattr(data, 'dict'):
                 data = data.dict()
+            else:
+                data = dict(data) # Ensure mutation works for standard dicts
             
             # Extract fields
             area_name = data.pop('area', None)
@@ -77,21 +79,25 @@ class DoctorReferralSerializer(serializers.ModelSerializer):
                 from core.models import Area
                 # If city is not provided, try to find area by name alone
                 if city:
-                    area_obj = Area.objects.filter(name=area_name, city=city).first()
-                    if not area_obj:
-                        area_obj = Area.objects.create(name=area_name, city=city)
+                    area_obj, _ = Area.objects.get_or_create(name=area_name, defaults={'city': city})
                 else:
                     area_obj = Area.objects.filter(name=area_name).first()
+                    if not area_obj:
+                        area_obj = Area.objects.create(name=area_name, city=city or '')
             
             # Build address_details structure if we have address data
-            if area_obj or street or pincode:
+            if area_name == "":
+                # Explicitly nullify address if area was cleared
+                data['address_details'] = None
+            elif area_obj or street is not None or pincode is not None:
                 address_details = {}
                 if street is not None:
                     address_details['street'] = street
                 if pincode is not None:
                     address_details['pincode'] = pincode
                 if area_obj:
-                    address_details['area_id'] = area_obj.id
+                    # In DRF nested serializers, the key is the field name
+                    address_details['area'] = area_obj.id
                 
                 # Only set if we have actual data to save
                 if address_details:
@@ -102,13 +108,14 @@ class DoctorReferralSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         address_data = validated_data.pop('address_details', None)
         doctor = DoctorReferral.objects.create(**validated_data)
-        if address_data:
+        if address_data is not None:
             address = Address.objects.create(**address_data)
             doctor.address_details = address
             doctor.save()
         return doctor
 
     def update(self, instance, validated_data):
+        has_address = 'address_details' in validated_data
         address_data = validated_data.pop('address_details', None)
         
         # Update doctor fields
@@ -117,15 +124,21 @@ class DoctorReferralSerializer(serializers.ModelSerializer):
         instance.save()
 
         # Update address
-        if address_data:
-            if instance.address_details:
-                for attr, value in address_data.items():
-                    setattr(instance.address_details, attr, value)
-                instance.address_details.save()
-            else:
-                address = Address.objects.create(**address_data)
-                instance.address_details = address
+        if has_address:
+            if address_data is None:
+                instance.address_details = None
                 instance.save()
+            else:
+                if instance.address_details:
+                    for attr, value in address_data.items():
+                        setattr(instance.address_details, attr, value)
+                    instance.address_details.save()
+                else:
+                    # Require area to create new Address
+                    if 'area' in address_data and address_data['area'] is not None:
+                        address = Address.objects.create(**address_data)
+                        instance.address_details = address
+                        instance.save()
         
         return instance
 

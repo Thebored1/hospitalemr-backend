@@ -22,9 +22,9 @@
             <div class="col-md-4">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="Assigned" {% if request.GET.status=='Assigned' %}selected{% endif %}>Assigned
+                    <option value="Assigned" {% if request.GET.status == 'Assigned' %}selected{% endif %}>Assigned
                     </option>
-                    <option value="Not Assigned" {% if request.GET.status=='Not Assigned' %}selected{% endif %}>Not
+                    <option value="Not Assigned" {% if request.GET.status == 'Not Assigned' %}selected{% endif %}>Not
                         Assigned</option>
                 </select>
             </div>

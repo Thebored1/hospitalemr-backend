@@ -123,14 +123,15 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Q
-        queryset = DoctorReferral.objects.all().order_by('-created_at')
+        # Exclude internal doctors from the visit assigned list for all users
+        queryset = DoctorReferral.objects.filter(is_internal=False).order_by('-created_at')
         
         # Support search for autocomplete
         search = self.request.query_params.get('search', None)
         if search:
             queryset = queryset.filter(name__icontains=search).order_by('-created_at')
         else:
-            if not self.request.user.is_staff:
+            if getattr(self.request.user, 'role', None) == 'advisor':
                 # Only show doctors in areas CURRENTLY assigned to this agent
                 # Use Area.agent field (current assignment), NOT AgentAssignment (history log)
                 assigned_area_ids = Area.objects.filter(
@@ -143,29 +144,34 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                 
                 print(f"DEBUG: User={self.request.user}, Assigned IDs={list(assigned_area_ids)}, Assigned Names={list(assigned_area_names)}")
 
-                # Filter by doctors in assigned areas via Address link
+                # Filter by doctors in assigned areas via Address link and exclude internal doctors
                 # Note: 'area' field on DoctorReferral was removed, relying on address_details__area
                 queryset = queryset.filter(
-                    Q(address_details__area_id__in=assigned_area_ids)
+                    Q(address_details__area_id__in=assigned_area_ids),
+                    is_internal=False
                 ).distinct().order_by('-created_at')
                 
                 # Exclude doctors disabled or already visited for the current assignment
-                # Find the most recent assignment for this agent in these areas
-                current_assignments = AgentAssignment.objects.filter(
-                    agent=self.request.user,
-                    area_id__in=assigned_area_ids
-                ).order_by('-assigned_at')
+                # Since an agent might be assigned multiple areas, find the LATEST assignment for EACH area.
+                latest_assignment_ids = []
+                for area_id in assigned_area_ids:
+                    latest = AgentAssignment.objects.filter(
+                        agent=self.request.user,
+                        area_id=area_id
+                    ).order_by('-assigned_at').first()
+                    if latest:
+                        latest_assignment_ids.append(latest.id)
                 
-                if current_assignments.exists():
+                if latest_assignment_ids:
                     # Exclude disabled doctors
                     inactive_doctor_ids = AgentAssignmentDoctorStatus.objects.filter(
-                        assignment__in=current_assignments,
+                        assignment_id__in=latest_assignment_ids,
                         is_active=False
                     ).values_list('doctor_id', flat=True)
                     
                     # Exclude already-visited doctors (per this assignment)
                     visited_doctor_ids = AgentAssignmentDoctorStatus.objects.filter(
-                        assignment__in=current_assignments,
+                        assignment_id__in=latest_assignment_ids,
                         is_visited=True
                     ).values_list('doctor_id', flat=True)
                     
@@ -194,9 +200,57 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         
         return super().list(request, *args, **kwargs)
 
+    def _mark_assignment_visited(self, doctor):
+        """Helper to mark doctor visited in active assignment"""
+        from django.utils import timezone
+        
+        # Find the active assignment
+        if doctor.address_details and doctor.address_details.area:
+            current_assignments = AgentAssignment.objects.filter(
+                agent=self.request.user,
+                area=doctor.address_details.area
+            ).order_by('-assigned_at')
+            
+            if current_assignments.exists():
+                current_assignment = current_assignments.first()
+                status_obj, created = AgentAssignmentDoctorStatus.objects.get_or_create(
+                    assignment=current_assignment,
+                    doctor=doctor,
+                    defaults={'is_active': True}
+                )
+                
+                # A doctor is only "Visited" if they have all mandatory fields completed (not a partial draft)
+                # Matches frontend _isIncomplete logic: contact, specialization, degree, area, pin, image
+                is_complete = bool(
+                    doctor.contact_number and str(doctor.contact_number).strip() and
+                    doctor.specialization and str(doctor.specialization).strip() and
+                    doctor.degree_qualification and str(doctor.degree_qualification).strip() and
+                    doctor.address_details and
+                    doctor.address_details.area and
+                    doctor.address_details.pincode and str(doctor.address_details.pincode).strip() and
+                    doctor.visit_image
+                )
+                
+                # Only mark visited if status is actually Referred AND entry is complete
+                if doctor.status == 'Referred':
+                    if is_complete:
+                        status_obj.is_visited = True
+                        status_obj.visit_trip = doctor.trip
+                        status_obj.visited_at = timezone.now()
+                    else:
+                        status_obj.is_visited = False
+                        status_obj.visit_trip = None
+                        status_obj.visited_at = None
+                    status_obj.save()
+
     def perform_create(self, serializer):
         # Agent is set automatically; Trip should be passed in request body
-        serializer.save(agent=self.request.user)
+        doctor = serializer.save(agent=self.request.user)
+        self._mark_assignment_visited(doctor)
+
+    def perform_update(self, serializer):
+        doctor = serializer.save()
+        self._mark_assignment_visited(doctor)
 
     @action(detail=False, methods=['get'])
     def master(self, request):

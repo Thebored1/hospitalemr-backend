@@ -34,6 +34,7 @@
             position: fixed;
             width: 250px;
             padding-top: 20px;
+            z-index: 1040;
         }
 
         .sidebar .nav-link {
@@ -139,7 +140,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {% if 'agent' in request.resolver_match.url_name %}active{% endif %}"
+                <a class="nav-link {% if 'agent' in request.resolver_match.url_name and 'assignment' not in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:agent_list' %}">
                     <i class="bi bi-people"></i> Agents
                 </a>

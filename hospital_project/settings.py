@@ -40,6 +40,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     'https://hospitalemr-backend.onrender.com',
+    'https://definite-toucan-highly.ngrok-free.app',
 ]
 
 
@@ -107,7 +108,6 @@ DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
         conn_max_age=600,
-        engine='django.db.backends.postgresql'
     )
 }
 
