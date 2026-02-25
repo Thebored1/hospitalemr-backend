@@ -54,16 +54,16 @@
             <div class="col-md-3">
                 <select name="type" class="form-select">
                     <option value="">All Types</option>
-                    <option value="OPD" {% if request.GET.type=='OPD' %}selected{% endif %}>OPD</option>
-                    <option value="IPD" {% if request.GET.type=='IPD' %}selected{% endif %}>IPD</option>
+                    <option value="OPD" {% if request.GET.type == 'OPD' %}selected{% endif %}>OPD</option>
+                    <option value="IPD" {% if request.GET.type == 'IPD' %}selected{% endif %}>IPD</option>
                 </select>
             </div>
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="ADMITTED" {% if request.GET.status=='ADMITTED' %}selected{% endif %}>Admitted
+                    <option value="ADMITTED" {% if request.GET.status == 'ADMITTED' %}selected{% endif %}>Admitted
                     </option>
-                    <option value="DISCHARGED" {% if request.GET.status=='DISCHARGED' %}selected{% endif %}>Discharged
+                    <option value="DISCHARGED" {% if request.GET.status == 'DISCHARGED' %}selected{% endif %}>Discharged
                     </option>
                 </select>
             </div>
