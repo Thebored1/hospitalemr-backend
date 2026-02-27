@@ -131,6 +131,7 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Q
+        from django.db.models.functions import Lower
         # Exclude internal doctors from the visit assigned list for all users
         queryset = DoctorReferral.objects.filter(is_internal=False).order_by('-created_at')
         
@@ -193,6 +194,23 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                     exclude_ids = set(inactive_doctor_ids) | set(visited_doctor_ids)
                     if exclude_ids:
                         queryset = queryset.exclude(id__in=exclude_ids)
+
+                    # Name-level exclusion is required because assignment statuses are
+                    # stored per DoctorReferral row. A new "Referred" row for the same
+                    # doctor name should hide older "Assigned" rows in the same assignment.
+                    excluded_name_keys = list(
+                        AgentAssignmentDoctorStatus.objects.filter(
+                            assignment_id__in=latest_assignment_ids
+                        )
+                        .filter(Q(is_active=False) | Q(is_visited=True))
+                        .annotate(name_key=Lower('doctor__name'))
+                        .values_list('name_key', flat=True)
+                        .distinct()
+                    )
+                    if excluded_name_keys:
+                        queryset = queryset.annotate(name_key=Lower('name')).exclude(
+                            name_key__in=excluded_name_keys
+                        )
                 
                 print(f"DEBUG: Found {queryset.count()} active doctors")
             
@@ -228,7 +246,7 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
             
             if current_assignments.exists():
                 current_assignment = current_assignments.first()
-                status_obj, created = AgentAssignmentDoctorStatus.objects.get_or_create(
+                AgentAssignmentDoctorStatus.objects.get_or_create(
                     assignment=current_assignment,
                     doctor=doctor,
                     defaults={'is_active': True}
@@ -248,15 +266,24 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                 
                 # Only mark visited if status is actually Referred AND entry is complete
                 if doctor.status == 'Referred':
+                    # Keep assignment state at doctor-name level. A visit for a doctor
+                    # should hide all rows with the same name for this assignment.
+                    same_name_statuses = AgentAssignmentDoctorStatus.objects.filter(
+                        assignment=current_assignment,
+                        doctor__name__iexact=doctor.name
+                    )
                     if is_complete:
-                        status_obj.is_visited = True
-                        status_obj.visit_trip = doctor.trip
-                        status_obj.visited_at = timezone.now()
+                        same_name_statuses.update(
+                            is_visited=True,
+                            visit_trip=doctor.trip,
+                            visited_at=timezone.now()
+                        )
                     else:
-                        status_obj.is_visited = False
-                        status_obj.visit_trip = None
-                        status_obj.visited_at = None
-                    status_obj.save()
+                        same_name_statuses.update(
+                            is_visited=False,
+                            visit_trip=None,
+                            visited_at=None
+                        )
 
     def perform_create(self, serializer):
         # Agent is set automatically; Trip should be passed in request body
@@ -315,15 +342,19 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
             
             if current_assignments.exists():
                 current_assignment = current_assignments.first()
-                status_obj, created = AgentAssignmentDoctorStatus.objects.get_or_create(
+                AgentAssignmentDoctorStatus.objects.get_or_create(
                     assignment=current_assignment,
                     doctor=doctor,
                     defaults={'is_active': True}
                 )
-                status_obj.is_visited = True
-                status_obj.visit_trip = trip
-                status_obj.visited_at = timezone.now()
-                status_obj.save()
+                AgentAssignmentDoctorStatus.objects.filter(
+                    assignment=current_assignment,
+                    doctor__name__iexact=doctor.name
+                ).update(
+                    is_visited=True,
+                    visit_trip=trip,
+                    visited_at=timezone.now()
+                )
         
         serializer = self.get_serializer(doctor)
         return Response(serializer.data)
