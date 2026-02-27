@@ -43,6 +43,11 @@ CSRF_TRUSTED_ORIGINS = [
     'https://definite-toucan-highly.ngrok-free.app',
 ]
 
+# Render sits behind a proxy; trust forwarded proto/host so generated URLs
+# (including media file URLs) use the correct HTTPS origin.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 
 # Application definition
 
@@ -153,4 +158,7 @@ if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# Keep local default for dev; set MEDIA_ROOT on Render to a persistent disk path
+# (for example: /var/data/media).
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
+SERVE_MEDIA_IN_PROD = os.environ.get('SERVE_MEDIA_IN_PROD', 'true').lower() == 'true'
