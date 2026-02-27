@@ -95,10 +95,18 @@ class AreaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.is_staff:
             return Area.objects.all()
-        # Only return areas assigned to this agent via AgentAssignment
-        assigned_area_ids = AgentAssignment.objects.filter(
-            agent=self.request.user
-        ).values_list('area_id', flat=True)
+        # Backward-compatible assignment resolution:
+        # 1) AgentAssignment history (new source of truth)
+        # 2) Area.agent pointer (legacy/admin edits)
+        assignment_area_ids = set(
+            AgentAssignment.objects.filter(agent=self.request.user).values_list(
+                'area_id', flat=True
+            )
+        )
+        legacy_area_ids = set(
+            Area.objects.filter(agent=self.request.user).values_list('id', flat=True)
+        )
+        assigned_area_ids = assignment_area_ids | legacy_area_ids
         return Area.objects.filter(id__in=assigned_area_ids)
 
     @action(detail=True, methods=['post'])
@@ -133,10 +141,18 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         else:
             if getattr(self.request.user, 'role', None) == 'advisor':
                 # Only show doctors in areas CURRENTLY assigned to this agent
-                # Use AgentAssignment model as the source of truth for what appears in the portal
-                assigned_area_ids = AgentAssignment.objects.filter(
-                    agent=self.request.user
-                ).values_list('area_id', flat=True).distinct()
+                # Use AgentAssignment and legacy Area.agent pointer for compatibility.
+                assignment_area_ids = set(
+                    AgentAssignment.objects.filter(
+                        agent=self.request.user
+                    ).values_list('area_id', flat=True).distinct()
+                )
+                legacy_area_ids = set(
+                    Area.objects.filter(agent=self.request.user).values_list(
+                        'id', flat=True
+                    )
+                )
+                assigned_area_ids = assignment_area_ids | legacy_area_ids
                 
                 # Also fetch area names for debug/legacy
                 assigned_area_names = Area.objects.filter(id__in=assigned_area_ids).values_list('name', flat=True)
