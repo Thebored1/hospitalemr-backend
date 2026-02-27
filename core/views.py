@@ -144,11 +144,10 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                 
                 print(f"DEBUG: User={self.request.user}, Assigned IDs={list(assigned_area_ids)}, Assigned Names={list(assigned_area_names)}")
 
-                # Filter by doctors in assigned areas OR doctors specifically assigned to this agent
-                # Important: Include doctors assigned via legacy 'agent' field as well
+                # Filter by doctors in assigned areas via Address link and exclude internal doctors
+                # Note: 'area' field on DoctorReferral was removed, relying on address_details__area
                 queryset = queryset.filter(
-                    Q(address_details__area_id__in=assigned_area_ids) | 
-                    Q(agent=self.request.user),
+                    address_details__area_id__in=assigned_area_ids,
                     is_internal=False
                 ).distinct().order_by('-created_at')
                 
