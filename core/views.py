@@ -133,21 +133,20 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         else:
             if getattr(self.request.user, 'role', None) == 'advisor':
                 # Only show doctors in areas CURRENTLY assigned to this agent
-                # Use Area.agent field (current assignment), NOT AgentAssignment (history log)
-                assigned_area_ids = Area.objects.filter(
+                # Use AgentAssignment model as the source of truth for what appears in the portal
+                assigned_area_ids = AgentAssignment.objects.filter(
                     agent=self.request.user
-                ).values_list('id', flat=True)
+                ).values_list('area_id', flat=True).distinct()
                 
-                # Also fetch area names to match legacy string 'area' field
-                # (Though we are moving away from this, keeping for safety if dirty data exists)
+                # Also fetch area names for debug/legacy
                 assigned_area_names = Area.objects.filter(id__in=assigned_area_ids).values_list('name', flat=True)
                 
-                print(f"DEBUG: User={self.request.user}, Assigned IDs={list(assigned_area_ids)}, Assigned Names={list(assigned_area_names)}")
+                print(f"DEBUG: User={self.request.user}, Assigned Area IDs={list(assigned_area_ids)}")
 
                 # Filter by doctors in assigned areas via Address link and exclude internal doctors
                 # Note: 'area' field on DoctorReferral was removed, relying on address_details__area
                 queryset = queryset.filter(
-                    address_details__area_id__in=assigned_area_ids,
+                    Q(address_details__area_id__in=assigned_area_ids),
                     is_internal=False
                 ).distinct().order_by('-created_at')
                 
