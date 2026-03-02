@@ -258,7 +258,7 @@
             </thead>
             <tbody>
                 {% for hist_assignment in assignment.area.assignment_history.all|slice:":10" %}
-                <tr {% if hist_assignment.pk==assignment.pk %}class="table-primary" {% endif %}>
+                <tr {% if hist_assignment.pk == assignment.pk %}class="table-primary" {% endif %}>
                     <td>{{ hist_assignment.assigned_at|date:"M d, Y H:i" }}</td>
                     <td>
                         <i class="bi bi-person-badge me-1"></i>
