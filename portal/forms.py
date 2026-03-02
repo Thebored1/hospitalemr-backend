@@ -8,14 +8,31 @@ class AgentCreationForm(UserCreationForm):
     
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
+        fields = ['username', 'first_name', 'last_name', 'password1', 'password2']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Add Bootstrap classes
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
-            
+        
+        # Repurpose username as Phone Number
+        self.fields['username'].label = 'Phone Number (Login ID)'
+        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the agent.'
+        self.fields['username'].widget.attrs['placeholder'] = 'e.g. 9876543210'
+        self.fields['username'].widget.attrs['type'] = 'text'
+        self.fields['username'].widget.attrs['maxlength'] = '10'
+        # Prevent non-numeric typing visually
+        self.fields['username'].widget.attrs['oninput'] = "this.value = this.value.replace(/[^0-9]/g, '')"
+
+    def clean_username(self):
+        # We must call super() for UserCreationForm's uniqueness check
+        username = super().clean_username() 
+        if not username.isdigit():
+            raise forms.ValidationError('Phone number must contain only digits (0-9).')
+        if len(username) != 10:
+            raise forms.ValidationError('Phone number must be exactly 10 digits.')
+        return username
     def save(self, commit=True):
         user = super().save(commit=False)
         user.role = 'advisor'  # Set role to advisor
@@ -29,7 +46,7 @@ class AgentUpdateForm(forms.ModelForm):
     
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_active']
+        fields = ['username', 'first_name', 'last_name', 'is_active']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,6 +55,32 @@ class AgentUpdateForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-check-input'
             else:
                 field.widget.attrs['class'] = 'form-control'
+
+        # Repurpose username as Phone Number
+        self.fields['username'].label = 'Phone Number (Login ID)'
+        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the agent.'
+        self.fields['username'].widget.attrs['placeholder'] = 'e.g. 9876543210'
+        self.fields['username'].widget.attrs['type'] = 'text'
+        self.fields['username'].widget.attrs['maxlength'] = '10'
+        # Prevent non-numeric typing visually
+        self.fields['username'].widget.attrs['oninput'] = "this.value = this.value.replace(/[^0-9]/g, '')"
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not username.isdigit():
+            raise forms.ValidationError('Phone number must contain only digits (0-9).')
+        if len(username) != 10:
+            raise forms.ValidationError('Phone number must be exactly 10 digits.')
+            
+        # Check uniqueness manually
+        from core.models import User
+        qs = User.objects.filter(username=username)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError('A user with that phone number already exists.')
+            
+        return username
 
 
 class AgentPasswordForm(SetPasswordForm):

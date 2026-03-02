@@ -64,8 +64,7 @@ class AgentListView(PortalMixin, ListView):
             queryset = queryset.filter(
                 Q(username__icontains=q) |
                 Q(first_name__icontains=q) |
-                Q(last_name__icontains=q) |
-                Q(email__icontains=q)
+                Q(last_name__icontains=q)
             )
             
         # Filter

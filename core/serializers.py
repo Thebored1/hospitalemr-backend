@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Task, DoctorReferral, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address
+from .models import User, Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -142,8 +142,45 @@ class DoctorReferralSerializer(serializers.ModelSerializer):
         
         return instance
 
+
+class TripDoctorVisitSerializer(serializers.ModelSerializer):
+    """Backwards-compatible trip timeline entry payload for mobile app."""
+
+    id = serializers.IntegerField(source='doctor.id', read_only=True)
+    trip = serializers.IntegerField(source='trip.id', read_only=True)
+    name = serializers.CharField(source='doctor.name', read_only=True)
+    contact_number = serializers.CharField(source='doctor.contact_number', read_only=True)
+    specialization = serializers.CharField(source='doctor.specialization', read_only=True)
+    degree_qualification = serializers.CharField(source='doctor.degree_qualification', read_only=True)
+    email = serializers.EmailField(source='doctor.email', read_only=True, allow_null=True)
+    additional_expenses = serializers.CharField(source='doctor.additional_expenses', read_only=True, allow_null=True)
+    address_details = AddressSerializer(source='doctor.address_details', read_only=True)
+    is_internal = serializers.BooleanField(source='doctor.is_internal', read_only=True)
+
+    class Meta:
+        model = DoctorVisit
+        fields = [
+            'id',
+            'trip',
+            'name',
+            'contact_number',
+            'specialization',
+            'degree_qualification',
+            'email',
+            'remarks',
+            'additional_details',
+            'additional_expenses',
+            'status',
+            'visit_image',
+            'visit_lat',
+            'visit_long',
+            'created_at',
+            'address_details',
+            'is_internal',
+        ]
+
 class TripSerializer(serializers.ModelSerializer):
-    doctor_referrals = DoctorReferralSerializer(many=True, read_only=True)
+    doctor_referrals = serializers.SerializerMethodField()
     overnight_stays = OvernightStaySerializer(many=True, read_only=True)
     agent_details = UserSerializer(source='agent', read_only=True)
     trip_number = serializers.SerializerMethodField()
@@ -156,6 +193,17 @@ class TripSerializer(serializers.ModelSerializer):
     def get_trip_number(self, obj):
         # Calculate trip number for this agent (rank ordered by ID)
         return Trip.objects.filter(agent=obj.agent, id__lte=obj.id).count()
+
+    def get_doctor_referrals(self, obj):
+        visits = obj.doctor_visits.select_related(
+            'doctor',
+            'doctor__address_details',
+            'doctor__address_details__area',
+        ).order_by('-created_at')
+        if visits.exists():
+            return TripDoctorVisitSerializer(visits, many=True).data
+        # Backward compatibility for older rows before DoctorVisit migration.
+        return DoctorReferralSerializer(obj.doctor_referrals.all(), many=True).data
 
 class PatientReferralSerializer(serializers.ModelSerializer):
     agent_details = UserSerializer(source='agent', read_only=True)

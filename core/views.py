@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from .models import Task, DoctorReferral, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, User, AgentAssignment, AgentAssignmentDoctorStatus
-from .serializers import TaskSerializer, DoctorReferralSerializer, PatientReferralSerializer, TripSerializer, OvernightStaySerializer, SpecializationSerializer, QualificationSerializer, AreaSerializer, AddressSerializer
+from .models import Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, User, AgentAssignment, AgentAssignmentDoctorStatus
+from .serializers import TaskSerializer, DoctorReferralSerializer, TripDoctorVisitSerializer, PatientReferralSerializer, TripSerializer, OvernightStaySerializer, SpecializationSerializer, QualificationSerializer, AreaSerializer, AddressSerializer
 
 class SpecializationViewSet(viewsets.ModelViewSet):
     """ViewSet for managing doctor specializations"""
@@ -50,7 +50,11 @@ class TripViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Filter trips by the current agent
-        return Trip.objects.filter(agent=self.request.user)
+        return Trip.objects.filter(agent=self.request.user).prefetch_related(
+            'doctor_visits__doctor__address_details__area',
+            'doctor_referrals__address_details__area',
+            'overnight_stays',
+        )
 
     def perform_create(self, serializer):
         serializer.save(agent=self.request.user)
@@ -217,23 +221,27 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         return queryset
     
     def list(self, request, *args, **kwargs):
-        """Override list to deduplicate by name for search results."""
+        """Override list to deduplicate by doctor identity for advisor/search use."""
         queryset = self.filter_queryset(self.get_queryset())
-        
-        # If searching, deduplicate by name (keep most recent)
-        if request.query_params.get('search'):
-            seen_names = set()
+
+        should_dedupe = bool(request.query_params.get('search')) or getattr(
+            request.user, 'role', None
+        ) == 'advisor'
+        if should_dedupe:
+            seen_keys = set()
             unique_doctors = []
             for doctor in queryset:
-                if doctor.name.lower() not in seen_names:
-                    seen_names.add(doctor.name.lower())
+                area_id = getattr(getattr(doctor, 'address_details', None), 'area_id', '')
+                key = f"{doctor.name.lower().strip()}::{area_id}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
                     unique_doctors.append(doctor)
             serializer = self.get_serializer(unique_doctors, many=True)
             return Response(serializer.data)
-        
+
         return super().list(request, *args, **kwargs)
 
-    def _mark_assignment_visited(self, doctor):
+    def _mark_assignment_visited(self, doctor, visit=None):
         """Helper to mark doctor visited in active assignment"""
         from django.utils import timezone
         
@@ -254,6 +262,9 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                 
                 # A doctor is only "Visited" if they have all mandatory fields completed (not a partial draft)
                 # Matches frontend _isIncomplete logic: contact, specialization, degree, area, pin, image
+                visit_image = visit.visit_image if visit is not None else doctor.visit_image
+                visit_status = visit.status if visit is not None else doctor.status
+                visit_trip = visit.trip if visit is not None else doctor.trip
                 is_complete = bool(
                     doctor.contact_number and str(doctor.contact_number).strip() and
                     doctor.specialization and str(doctor.specialization).strip() and
@@ -261,11 +272,11 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                     doctor.address_details and
                     doctor.address_details.area and
                     doctor.address_details.pincode and str(doctor.address_details.pincode).strip() and
-                    doctor.visit_image
+                    visit_image
                 )
                 
                 # Only mark visited if status is actually Referred AND entry is complete
-                if doctor.status == 'Referred':
+                if visit_status == 'Referred':
                     # Keep assignment state at doctor-name level. A visit for a doctor
                     # should hide all rows with the same name for this assignment.
                     same_name_statuses = AgentAssignmentDoctorStatus.objects.filter(
@@ -275,7 +286,7 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                     if is_complete:
                         same_name_statuses.update(
                             is_visited=True,
-                            visit_trip=doctor.trip,
+                            visit_trip=visit_trip,
                             visited_at=timezone.now()
                         )
                     else:
@@ -285,9 +296,216 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                             visited_at=None
                         )
 
+    def _get_trip_from_request(self, request, required=True):
+        trip_id = request.data.get('trip') or request.data.get('trip_id')
+        if not trip_id:
+            if required:
+                return None, Response({'error': 'trip is required'}, status=400)
+            return None, None
+
+        try:
+            trip_id = int(str(trip_id))
+        except (TypeError, ValueError):
+            return None, Response({'error': 'Invalid trip id'}, status=400)
+
+        trip_filters = {'id': trip_id}
+        if getattr(request.user, 'role', None) == 'advisor':
+            trip_filters['agent'] = request.user
+
+        try:
+            trip = Trip.objects.get(**trip_filters)
+        except Trip.DoesNotExist:
+            return None, Response({'error': 'Trip not found or not owned by you'}, status=404)
+        return trip, None
+
+    def _get_master_payload(self, request):
+        data = request.data.copy()
+        visit_only_fields = [
+            'trip',
+            'trip_id',
+            'doctor_id',
+            'remarks',
+            'additional_details',
+            'status',
+            'visit_lat',
+            'visit_long',
+            'visit_image',
+        ]
+        for field in visit_only_fields:
+            if field in data:
+                data.pop(field)
+        if 'id' in data:
+            data.pop('id')
+        return data
+
+    def _resolve_or_create_doctor(self, request):
+        doctor = None
+        doctor_id = request.data.get('doctor_id') or request.data.get('id')
+        if doctor_id:
+            try:
+                doctor = DoctorReferral.objects.filter(id=int(str(doctor_id))).first()
+            except (TypeError, ValueError):
+                doctor = None
+
+        if doctor is None:
+            name = (request.data.get('name') or '').strip()
+            if name:
+                fallback_qs = DoctorReferral.objects.filter(name__iexact=name)
+                area_name = (request.data.get('area') or '').strip()
+                if area_name:
+                    fallback_qs = fallback_qs.filter(
+                        address_details__area__name__iexact=area_name
+                    )
+                doctor = fallback_qs.order_by('-created_at').first()
+
+        master_payload = self._get_master_payload(request)
+
+        if doctor is not None:
+            if master_payload:
+                serializer = self.get_serializer(
+                    doctor,
+                    data=master_payload,
+                    partial=True,
+                )
+                serializer.is_valid(raise_exception=True)
+                doctor = serializer.save()
+            return doctor
+
+        serializer = self.get_serializer(data=master_payload)
+        serializer.is_valid(raise_exception=True)
+        if getattr(request.user, 'role', None) == 'advisor':
+            return serializer.save(agent=request.user)
+        return serializer.save()
+
+    def _upsert_doctor_visit(self, doctor, trip, request):
+        visit_defaults = {
+            'status': request.data.get('status') or 'Referred',
+        }
+        for field in ['remarks', 'additional_details', 'visit_lat', 'visit_long']:
+            if field in request.data:
+                visit_defaults[field] = request.data.get(field)
+
+        visit, created = DoctorVisit.objects.get_or_create(
+            doctor=doctor,
+            trip=trip,
+            defaults=visit_defaults,
+        )
+
+        changed = False
+        if not created:
+            for field in ['status', 'remarks', 'additional_details', 'visit_lat', 'visit_long']:
+                if field in request.data:
+                    value = request.data.get(field)
+                    if getattr(visit, field) != value:
+                        setattr(visit, field, value)
+                        changed = True
+
+        if 'visit_image' in request.FILES:
+            visit.visit_image = request.FILES['visit_image']
+            changed = True
+
+        if changed:
+            visit.save()
+
+        # Keep doctor-level visit fields synced to the latest trip visit for backward compatibility.
+        doctor_update_fields = []
+        if doctor.trip_id != trip.id:
+            doctor.trip = trip
+            doctor_update_fields.append('trip')
+        if doctor.remarks != visit.remarks:
+            doctor.remarks = visit.remarks
+            doctor_update_fields.append('remarks')
+        if doctor.additional_details != visit.additional_details:
+            doctor.additional_details = visit.additional_details
+            doctor_update_fields.append('additional_details')
+        if doctor.status != visit.status:
+            doctor.status = visit.status
+            doctor_update_fields.append('status')
+        if doctor.visit_lat != visit.visit_lat:
+            doctor.visit_lat = visit.visit_lat
+            doctor_update_fields.append('visit_lat')
+        if doctor.visit_long != visit.visit_long:
+            doctor.visit_long = visit.visit_long
+            doctor_update_fields.append('visit_long')
+        if visit.visit_image and doctor.visit_image != visit.visit_image:
+            doctor.visit_image = visit.visit_image
+            doctor_update_fields.append('visit_image')
+        if doctor_update_fields:
+            doctor.save(update_fields=doctor_update_fields)
+
+        return visit, created
+
+    def create(self, request, *args, **kwargs):
+        # Advisor app flow: keep one doctor row and store per-trip visits separately.
+        if getattr(request.user, 'role', None) == 'advisor':
+            trip, err = self._get_trip_from_request(request, required=True)
+            if err is not None:
+                return err
+            doctor = self._resolve_or_create_doctor(request)
+            visit, created = self._upsert_doctor_visit(doctor, trip, request)
+            self._mark_assignment_visited(doctor, visit=visit)
+            code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+            return Response(TripDoctorVisitSerializer(visit).data, status=code)
+
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        doctor = self.get_object()
+        trip, err = self._get_trip_from_request(request, required=False)
+        if err is not None:
+            return err
+
+        if trip is not None:
+            master_payload = self._get_master_payload(request)
+            if master_payload:
+                serializer = self.get_serializer(
+                    doctor,
+                    data=master_payload,
+                    partial=True,
+                )
+                serializer.is_valid(raise_exception=True)
+                doctor = serializer.save()
+            visit, _ = self._upsert_doctor_visit(doctor, trip, request)
+            self._mark_assignment_visited(doctor, visit=visit)
+            return Response(TripDoctorVisitSerializer(visit).data)
+
+        serializer = self.get_serializer(doctor, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        doctor = serializer.save()
+        self._mark_assignment_visited(doctor)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        doctor = self.get_object()
+        trip, err = self._get_trip_from_request(request, required=False)
+        if err is not None:
+            return err
+
+        if trip is not None:
+            master_payload = self._get_master_payload(request)
+            if master_payload:
+                serializer = self.get_serializer(
+                    doctor,
+                    data=master_payload,
+                    partial=True,
+                )
+                serializer.is_valid(raise_exception=True)
+                doctor = serializer.save()
+            visit, _ = self._upsert_doctor_visit(doctor, trip, request)
+            self._mark_assignment_visited(doctor, visit=visit)
+            return Response(TripDoctorVisitSerializer(visit).data)
+
+        serializer = self.get_serializer(doctor, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        doctor = serializer.save()
+        self._mark_assignment_visited(doctor)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
-        # Agent is set automatically; Trip should be passed in request body
-        doctor = serializer.save(agent=self.request.user)
+        if getattr(self.request.user, 'role', None) == 'advisor':
+            doctor = serializer.save(agent=self.request.user)
+        else:
+            doctor = serializer.save()
         self._mark_assignment_visited(doctor)
 
     def perform_update(self, serializer):
@@ -316,48 +534,21 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
     def mark_visited(self, request, pk=None):
         """Mark a doctor as visited by associating them with a trip"""
         doctor = self.get_object()
-        trip_id = request.data.get('trip_id')
-        
-        if not trip_id:
-            return Response({'error': 'trip_id is required'}, status=400)
-        
-        # Verify the trip belongs to this agent
-        try:
-            trip = Trip.objects.get(id=trip_id, agent=request.user)
-        except Trip.DoesNotExist:
-            return Response({'error': 'Trip not found or not owned by you'}, status=404)
-        
-        # Associate doctor with trip (backward compat)
-        doctor.trip = trip
-        doctor.save()
-        
-        # Also update per-assignment visit tracking
-        # Find the current assignment for this agent's area
-        from django.utils import timezone
-        if doctor.address_details and doctor.address_details.area:
-            current_assignments = AgentAssignment.objects.filter(
-                agent=request.user,
-                area=doctor.address_details.area
-            ).order_by('-assigned_at')
-            
-            if current_assignments.exists():
-                current_assignment = current_assignments.first()
-                AgentAssignmentDoctorStatus.objects.get_or_create(
-                    assignment=current_assignment,
-                    doctor=doctor,
-                    defaults={'is_active': True}
-                )
-                AgentAssignmentDoctorStatus.objects.filter(
-                    assignment=current_assignment,
-                    doctor__name__iexact=doctor.name
-                ).update(
-                    is_visited=True,
-                    visit_trip=trip,
-                    visited_at=timezone.now()
-                )
-        
-        serializer = self.get_serializer(doctor)
-        return Response(serializer.data)
+        trip, err = self._get_trip_from_request(request, required=True)
+        if err is not None:
+            return err
+
+        visit, _ = DoctorVisit.objects.get_or_create(
+            doctor=doctor,
+            trip=trip,
+            defaults={'status': 'Referred'},
+        )
+        if doctor.trip_id != trip.id:
+            doctor.trip = trip
+            doctor.save(update_fields=['trip'])
+
+        self._mark_assignment_visited(doctor, visit=visit)
+        return Response(TripDoctorVisitSerializer(visit).data)
 
 class OvernightStayViewSet(viewsets.ModelViewSet):
     queryset = OvernightStay.objects.all()

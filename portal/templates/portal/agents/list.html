@@ -13,14 +13,14 @@
     <div class="card-body py-3">
         <form method="get" class="row g-3 align-items-center">
             <div class="col-md-5">
-                <input type="text" name="q" class="form-control" placeholder="Search by name or email..."
+                <input type="text" name="q" class="form-control" placeholder="Search by name or phone..."
                     value="{{ request.GET.q }}">
             </div>
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
-                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive
+                    <option value="active" {% if request.GET.status=='active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if request.GET.status=='inactive' %}selected{% endif %}>Inactive
                     </option>
                 </select>
             </div>
@@ -41,7 +41,6 @@
                 <tr>
                     <th>Username</th>
                     <th>Full Name</th>
-                    <th>Email</th>
                     <th>Trips</th>
                     <th>Status</th>
                     <th>Joined</th>
@@ -56,7 +55,6 @@
                         <strong>{{ agent.username }}</strong>
                     </td>
                     <td>{{ agent.get_full_name|default:"-" }}</td>
-                    <td>{{ agent.email|default:"-" }}</td>
                     <td>
                         <span class="badge bg-secondary">{{ agent.trip_count }} trips</span>
                     </td>

@@ -203,6 +203,40 @@ class DoctorReferral(models.Model):
     def __str__(self):
         return self.name
 
+
+class DoctorVisit(models.Model):
+    """Per-trip visit record for a doctor."""
+
+    doctor = models.ForeignKey(
+        DoctorReferral,
+        on_delete=models.CASCADE,
+        related_name='visits',
+    )
+    trip = models.ForeignKey(
+        Trip,
+        on_delete=models.CASCADE,
+        related_name='doctor_visits',
+    )
+    remarks = models.TextField(blank=True, null=True)
+    additional_details = models.TextField(blank=True, null=True)
+    status = models.CharField(
+        max_length=50,
+        choices=DoctorReferral.DOCTOR_STATUS_CHOICES,
+        default='Referred',
+    )
+    visit_image = models.ImageField(upload_to='doctor_visits/', null=True, blank=True)
+    visit_lat = models.DecimalField(max_digits=20, decimal_places=15, null=True, blank=True)
+    visit_long = models.DecimalField(max_digits=20, decimal_places=15, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('doctor', 'trip')
+
+    def __str__(self):
+        return f"{self.doctor.name} visit on trip {self.trip_id}"
+
 class DoctorCommissionProfile(models.Model):
     """Commission rates for a doctor based on payment category."""
     

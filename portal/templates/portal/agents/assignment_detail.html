@@ -64,10 +64,6 @@
                         <td>{{ assignment.agent.get_full_name|default:"-" }}</td>
                     </tr>
                     <tr>
-                        <th>Email:</th>
-                        <td>{{ assignment.agent.email|default:"-" }}</td>
-                    </tr>
-                    <tr>
                         <th>Status:</th>
                         <td>
                             {% if assignment.agent.is_active %}
@@ -176,7 +172,7 @@
                     <th>Doctor Name</th>
                     <th>Specialization</th>
                     <th>Contact</th>
-                    
+
                     <th>Visit Status</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -206,7 +202,8 @@
                         </span>
                         <br>
                         {% if doctor.visit_trip_in_assignment %}
-                        <a href="{% url 'portal:trip_detail' doctor.visit_trip_in_assignment.pk %}" class="small text-decoration-none">
+                        <a href="{% url 'portal:trip_detail' doctor.visit_trip_in_assignment.pk %}"
+                            class="small text-decoration-none">
                             Trip #{{ doctor.visit_trip_in_assignment.id }}
                         </a>
                         {% endif %}
@@ -256,12 +253,12 @@
                     <th>Date</th>
                     <th>Agent</th>
                     <th>Notes</th>
-                    
+
                 </tr>
             </thead>
             <tbody>
                 {% for hist_assignment in assignment.area.assignment_history.all|slice:":10" %}
-                <tr {% if hist_assignment.pk == assignment.pk %}class="table-primary" {% endif %}>
+                <tr {% if hist_assignment.pk==assignment.pk %}class="table-primary" {% endif %}>
                     <td>{{ hist_assignment.assigned_at|date:"M d, Y H:i" }}</td>
                     <td>
                         <i class="bi bi-person-badge me-1"></i>
