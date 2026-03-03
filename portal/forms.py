@@ -157,13 +157,16 @@ class AreaForm(forms.ModelForm):
     class Meta:
         model = Area
         fields = ['name', 'street', 'landmark', 'city', 'pincode', 'region', 'state', 'description', 'agent']
+        labels = {
+            'region': 'District',
+        }
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Area Name'}),
             'street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Street Address'}),
             'landmark': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Landmark'}),
             'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'City'}),
             'pincode': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Pincode'}),
-            'region': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Region (e.g. Vidarbha)'}),
+            'region': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'District (e.g. Bilaspur)'}),
             'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description'}),
             'agent': forms.Select(attrs={'class': 'form-select'}),
