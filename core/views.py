@@ -1,12 +1,12 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from .models import Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, User, AgentAssignment, AgentAssignmentDoctorStatus
-from .serializers import TaskSerializer, DoctorReferralSerializer, TripDoctorVisitSerializer, PatientReferralSerializer, TripSerializer, OvernightStaySerializer, SpecializationSerializer, QualificationSerializer, AreaSerializer, AddressSerializer
+from .models import Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, User, AgentAssignment, AgentAssignmentDoctorStatus, ClientLog
+from .serializers import TaskSerializer, DoctorReferralSerializer, TripDoctorVisitSerializer, PatientReferralSerializer, TripSerializer, OvernightStaySerializer, SpecializationSerializer, QualificationSerializer, AreaSerializer, AddressSerializer, ClientLogSerializer
 
 class SpecializationViewSet(viewsets.ModelViewSet):
     """ViewSet for managing doctor specializations"""
@@ -144,6 +144,29 @@ class TripViewSet(viewsets.ModelViewSet):
 class AreaViewSet(viewsets.ModelViewSet):
     serializer_class = AreaSerializer
     permission_classes = [IsAuthenticated]
+
+
+class ClientLogViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = ClientLog.objects.all()
+    serializer_class = ClientLogSerializer
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsAdminUser()]
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        ip_address = self.request.META.get('HTTP_X_FORWARDED_FOR')
+        if ip_address:
+            ip_address = ip_address.split(',')[0].strip()
+        else:
+            ip_address = self.request.META.get('REMOTE_ADDR')
+        serializer.save(user=user, ip_address=ip_address)
 
     def get_queryset(self):
         if self.request.user.is_staff:

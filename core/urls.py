@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TaskViewSet, DoctorReferralViewSet, PatientReferralViewSet, TripViewSet, OvernightStayViewSet, CustomAuthToken, SpecializationViewSet, QualificationViewSet, AreaViewSet
+from .views import TaskViewSet, DoctorReferralViewSet, PatientReferralViewSet, TripViewSet, OvernightStayViewSet, CustomAuthToken, SpecializationViewSet, QualificationViewSet, AreaViewSet, ClientLogViewSet
 
 router = DefaultRouter()
 router.register(r'areas', AreaViewSet, basename='area')
@@ -11,6 +11,7 @@ router.register(r'overnight-stays', OvernightStayViewSet)
 router.register(r'patient-referrals', PatientReferralViewSet)
 router.register(r'specializations', SpecializationViewSet)
 router.register(r'qualifications', QualificationViewSet)
+router.register(r'logs', ClientLogViewSet, basename='client-log')
 
 urlpatterns = [
     path('', include(router.urls)),

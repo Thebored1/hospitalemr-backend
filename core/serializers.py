@@ -1,10 +1,31 @@
 from rest_framework import serializers
-from .models import User, Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address
+from .models import User, Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, ClientLog
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'role']
+
+
+class ClientLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientLog
+        fields = [
+            'id',
+            'user',
+            'level',
+            'message',
+            'logger',
+            'context',
+            'device_id',
+            'app_version',
+            'platform',
+            'build_mode',
+            'client_time',
+            'ip_address',
+            'created_at',
+        ]
+        read_only_fields = ['user', 'ip_address', 'created_at']
 
 class SpecializationSerializer(serializers.ModelSerializer):
     class Meta:

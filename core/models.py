@@ -265,6 +265,41 @@ class DoctorCommissionProfile(models.Model):
     def __str__(self):
         return f"{self.doctor.name} - {self.payment_category.name}"
 
+
+class ClientLog(models.Model):
+    LEVEL_CHOICES = (
+        ('DEBUG', 'Debug'),
+        ('INFO', 'Info'),
+        ('WARN', 'Warn'),
+        ('ERROR', 'Error'),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='client_logs',
+    )
+    level = models.CharField(max_length=10, choices=LEVEL_CHOICES, default='INFO')
+    message = models.TextField()
+    logger = models.CharField(max_length=100, blank=True, null=True)
+    context = models.JSONField(default=dict, blank=True)
+    device_id = models.CharField(max_length=64, blank=True, null=True)
+    app_version = models.CharField(max_length=32, blank=True, null=True)
+    platform = models.CharField(max_length=32, blank=True, null=True)
+    build_mode = models.CharField(max_length=16, blank=True, null=True)
+    client_time = models.DateTimeField(null=True, blank=True)
+    ip_address = models.CharField(max_length=45, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        who = self.user.username if self.user else "anonymous"
+        return f"[{self.level}] {who}: {self.message[:60]}"
+
 class OvernightStay(models.Model):
     trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='overnight_stays')
     hotel_name = models.CharField(max_length=100)

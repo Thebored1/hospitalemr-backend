@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Task, Trip, Specialization, Qualification, DoctorReferral, OvernightStay, PatientReferral, Admission, DoctorCommissionProfile
+from .models import User, Task, Trip, Specialization, Qualification, DoctorReferral, OvernightStay, PatientReferral, Admission, DoctorCommissionProfile, ClientLog
 
 # Register your models here.
 @admin.register(DoctorCommissionProfile)
@@ -19,6 +19,11 @@ class TripAdmin(admin.ModelAdmin):
 
 admin.site.register(Specialization)
 admin.site.register(Qualification)
+@admin.register(ClientLog)
+class ClientLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'level', 'user', 'logger', 'message')
+    list_filter = ('level', 'platform', 'build_mode', 'created_at')
+    search_fields = ('message', 'logger', 'user__username', 'device_id')
 
 @admin.register(DoctorReferral)
 class DoctorReferralAdmin(admin.ModelAdmin):
