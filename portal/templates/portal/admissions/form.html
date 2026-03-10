@@ -34,7 +34,7 @@
                                 data-age="{{ pr.age|default_if_none:'' }}"
                                 data-gender="{{ pr.gender|default_if_none:'' }}"
                                 data-agent="{{ pr.agent.get_full_name|default:pr.agent.username }}">
-                                Agent: {{ pr.agent.username }} | {{ pr.illness }}
+                                Agent: {{ pr.agent.get_full_name|default:pr.agent.username }} | {{ pr.illness }}
                             </option>
                             {% endfor %}
                         </datalist>

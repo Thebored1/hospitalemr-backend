@@ -173,8 +173,8 @@ class TripListView(PortalMixin, ListView):
         if q:
             queryset = queryset.filter(
                 Q(id__icontains=q) |
-                Q(start_location__icontains=q) |
-                Q(end_location__icontains=q) |
+                Q(status__icontains=q) |
+                Q(additional_expenses__icontains=q) |
                 Q(agent__username__icontains=q) |
                 Q(agent__first_name__icontains=q)
             )
@@ -249,16 +249,43 @@ class AssignDoctorsView(PortalMixin, View):
         form = DoctorAssignmentForm(request.POST)
         
         if form.is_valid():
+            area_name = (form.cleaned_data.get('area') or '').strip()
+            city = (form.cleaned_data.get('city') or '').strip()
+            pin = (form.cleaned_data.get('pin') or '').strip()
+            street = (form.cleaned_data.get('street') or '').strip()
+
+            area_obj, _ = Area.objects.get_or_create(
+                name=area_name,
+                defaults={
+                    'city': city or 'Unknown',
+                    'pincode': pin,
+                }
+            )
+
+            # Backfill missing metadata for previously created areas.
+            area_updates = []
+            if city and not area_obj.city:
+                area_obj.city = city
+                area_updates.append('city')
+            if pin and not area_obj.pincode:
+                area_obj.pincode = pin
+                area_updates.append('pincode')
+            if area_updates:
+                area_obj.save(update_fields=area_updates)
+
+            address = Address.objects.create(
+                area=area_obj,
+                street=street or None,
+                pincode=pin or None,
+            )
+
             DoctorReferral.objects.create(
                 trip=trip,
                 agent=trip.agent,
+                address_details=address,
                 name=form.cleaned_data['name'],
                 specialization=form.cleaned_data.get('specialization').name if form.cleaned_data.get('specialization') else '',
                 contact_number=form.cleaned_data.get('contact_number', ''),
-                area=form.cleaned_data.get('area', ''),
-                street=form.cleaned_data.get('street', ''),
-                city=form.cleaned_data.get('city', ''),
-                pin=form.cleaned_data.get('pin', ''),
                 status='Assigned'
             )
             messages.success(request, f'Doctor "{form.cleaned_data["name"]}" assigned to trip.')
@@ -281,7 +308,12 @@ class DoctorListView(PortalMixin, ListView):
     context_object_name = 'doctors'
     
     def get_queryset(self):
-        queryset = DoctorReferral.objects.select_related('agent', 'trip', 'address_details__area').order_by('-created_at')
+        queryset = DoctorReferral.objects.select_related(
+            'agent',
+            'trip',
+            'address_details__area',
+            'address_details__area__agent',
+        ).order_by('-created_at')
         
         # Search
         q = self.request.GET.get('q')
@@ -297,11 +329,13 @@ class DoctorListView(PortalMixin, ListView):
             
         agent_id = self.request.GET.get('agent')
         if agent_id:
-            queryset = queryset.filter(agent_id=agent_id)
-        
-        # Get all area IDs that have an active agent assignment
-        assigned_area_ids = set(
-            AgentAssignment.objects.values_list('area_id', flat=True)
+            queryset = queryset.filter(
+                Q(agent_id=agent_id) | Q(address_details__area__agent_id=agent_id)
+            )
+
+        # Areas with a currently active assigned agent.
+        active_assigned_area_ids = set(
+            Area.objects.filter(agent__isnull=False).values_list('id', flat=True)
         )
         
         # Deduplicate by name - keep only the most recent entry per unique doctor name
@@ -312,9 +346,16 @@ class DoctorListView(PortalMixin, ListView):
             if name_key not in seen_names:
                 seen_names.add(name_key)
                 doctor.visit_count = DoctorReferral.objects.filter(name__iexact=doctor.name).count()
-                # Compute assignment status dynamically
-                area_id = getattr(getattr(getattr(doctor, 'address_details', None), 'area', None), 'id', None)
-                doctor.is_assigned = area_id is not None and area_id in assigned_area_ids
+                area_obj = getattr(getattr(doctor, 'address_details', None), 'area', None)
+                area_id = getattr(area_obj, 'id', None)
+
+                # Prefer explicit doctor.agent, then current area agent assignment.
+                doctor.assigned_agent = doctor.agent or getattr(area_obj, 'agent', None)
+                doctor.is_assigned = bool(
+                    doctor.assigned_agent or (
+                        area_id is not None and area_id in active_assigned_area_ids
+                    )
+                )
                 unique_doctors.append(doctor)
         
         # Filter by status after computing
@@ -339,15 +380,38 @@ class DoctorDetailView(PortalMixin, DetailView):
     context_object_name = 'doctor'
     
     def get_queryset(self):
-        return DoctorReferral.objects.select_related('agent', 'trip')
+        return DoctorReferral.objects.select_related(
+            'agent',
+            'trip',
+            'address_details__area',
+            'address_details__area__agent',
+        )
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Get visit history - all entries with the same doctor name (excluding current)
         doctor = self.object
-        context['visit_history'] = DoctorReferral.objects.filter(
+
+        area_agent_cache = {}
+
+        def resolve_assigned_agent(doctor_ref):
+            area_obj = getattr(getattr(doctor_ref, 'address_details', None), 'area', None)
+            return doctor_ref.agent or getattr(area_obj, 'agent', None)
+
+        context['assigned_agent'] = resolve_assigned_agent(doctor)
+
+        # Visit history - all entries with the same doctor name (excluding current).
+        visit_history = list(
+            DoctorReferral.objects.filter(
             name=doctor.name
-        ).exclude(pk=doctor.pk).select_related('agent', 'trip').order_by('-created_at')
+            )
+            .exclude(pk=doctor.pk)
+            .select_related('agent', 'trip', 'address_details__area', 'address_details__area__agent')
+            .order_by('-created_at')
+        )
+        for entry in visit_history:
+            entry.effective_agent = resolve_assigned_agent(entry)
+        context['visit_history'] = visit_history
+        context['visit_history_count'] = len(visit_history)
         return context
 
 
@@ -786,7 +850,9 @@ class ReportsDashboardView(PortalMixin, TemplateView):
         
         # --- 2. Agent-wise Revenue Report ---
         agent_revenue = filtered_admissions.filter(patient_referral__agent__isnull=False).values(
-            'patient_referral__agent__username'
+            'patient_referral__agent__username',
+            'patient_referral__agent__first_name',
+            'patient_referral__agent__last_name'
         ).annotate(
             total_revenue=Sum(
                 F('bed_charges') + F('nursing_charges') + F('doctor_consultation_charges') + 
@@ -804,7 +870,7 @@ class ReportsDashboardView(PortalMixin, TemplateView):
         if agent_id:
             agent_qs = agent_qs.filter(id=agent_id)
         
-        all_agents = agent_qs.values('username')
+        all_agents = agent_qs.values('username', 'first_name', 'last_name')
         
         # Start with actual revenue data to ensure accuracy
         full_agent_stats = list(agent_revenue)
@@ -816,6 +882,8 @@ class ReportsDashboardView(PortalMixin, TemplateView):
             if username not in existing_agent_names:
                 full_agent_stats.append({
                     'patient_referral__agent__username': username,
+                    'patient_referral__agent__first_name': agent.get('first_name'),
+                    'patient_referral__agent__last_name': agent.get('last_name'),
                     'total_revenue': 0,
                     'opd_count': 0,
                     'ipd_count': 0
@@ -1224,8 +1292,6 @@ class PatientReferralStatusUpdateView(PortalMixin, View):
             referral.status = new_status
             referral.save(update_fields=['status'])
             messages.success(request, f'Patient "{referral.patient_name}" marked as {new_status}.')
-
-        return redirect(request.META.get('HTTP_REFERER', reverse_lazy('portal:patient_list')))
 
         return redirect(request.META.get('HTTP_REFERER', reverse_lazy('portal:patient_list')))
 

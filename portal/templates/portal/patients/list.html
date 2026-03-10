@@ -71,10 +71,12 @@
                             <div class="d-flex align-items-center">
                                 <div class="avatar-sm bg-light rounded-circle text-primary me-2 d-flex align-items-center justify-content-center"
                                     style="width: 32px; height: 32px;">
-                                    {{ patient.agent.username|make_list|first|upper }}
+                                    {{ patient.agent.get_full_name|default:patient.agent.username|make_list|first|upper
+                                    }}
                                 </div>
                                 <div>
-                                    <div class="small fw-bold">{{ patient.agent.username }}</div>
+                                    <div class="small fw-bold">{{
+                                        patient.agent.get_full_name|default:patient.agent.username }}</div>
                                 </div>
                             </div>
                         </td>

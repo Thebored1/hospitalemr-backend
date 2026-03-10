@@ -39,6 +39,7 @@ if RENDER_EXTERNAL_HOSTNAME:
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://habitable-pettedly-agueda.ngrok-free.dev',
     'https://hospitalemr-backend.onrender.com',
     'https://definite-toucan-highly.ngrok-free.app',
 ]
@@ -158,7 +159,12 @@ if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-# Keep local default for dev; set MEDIA_ROOT on Render to a persistent disk path
-# (for example: /var/data/media).
-MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
+# Default to persistent disk on Render so uploaded files survive deploy/restart.
+# You can still override this explicitly with MEDIA_ROOT env var.
+if os.environ.get('RENDER', '').lower() == 'true':
+    default_media_root = '/var/data/media'
+else:
+    default_media_root = str(BASE_DIR / 'media')
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', default_media_root))
 SERVE_MEDIA_IN_PROD = os.environ.get('SERVE_MEDIA_IN_PROD', 'true').lower() == 'true'
+

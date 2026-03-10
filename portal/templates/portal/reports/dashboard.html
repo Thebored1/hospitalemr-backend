@@ -93,7 +93,7 @@
                     <option value="">All Agents</option>
                     {% for agent in agents %}
                     <option value="{{agent.id}}" {% if filters_data.agent_id == agent.id %} selected{% endif %}>
-                        {{agent.username}}</option>
+                        {{ agent.get_full_name|default:agent.username }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -201,7 +201,7 @@
                                     </div>
                                 </td>
                                 <td><span
-                                        class="badge bg-light text-dark">{{admission.patient_referral.agent.username}}</span>
+                                        class="badge bg-light text-dark">{{admission.patient_referral.agent.get_full_name|default:admission.patient_referral.agent.username}}</span>
                                 </td>
                                 <td>
                                     <span
@@ -260,7 +260,15 @@
                     <tbody>
                         {% for a in agent_revenue %}
                         <tr>
-                            <td><strong>{{a.patient_referral__agent__username}}</strong></td>
+                            <td>
+                                <strong>
+                                    {% if a.patient_referral__agent__first_name or a.patient_referral__agent__last_name %}
+                                        {{ a.patient_referral__agent__first_name|default:"" }}{% if a.patient_referral__agent__first_name and a.patient_referral__agent__last_name %} {% endif %}{{ a.patient_referral__agent__last_name|default:"" }}
+                                    {% else %}
+                                        {{ a.patient_referral__agent__username }}
+                                    {% endif %}
+                                </strong>
+                            </td>
                             <td class="text-center"><span class="badge bg-light text-dark border">{{a.opd_count}}</span>
                             </td>
                             <td class="text-center"><span class="badge bg-light text-dark border">{{a.ipd_count}}</span>

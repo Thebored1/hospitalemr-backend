@@ -89,6 +89,55 @@ class TripViewSet(viewsets.ModelViewSet):
              trip.end_long = request.data['end_long']
         
         trip.save()
+        # After trip completion, update assignment statuses for completed visits
+        try:
+            from core.models import AgentAssignmentDoctorStatus, AgentAssignment
+            visits = trip.doctor_visits.select_related(
+                'doctor',
+                'doctor__address_details',
+                'doctor__address_details__area',
+            )
+            for visit in visits:
+                doctor = visit.doctor
+                if not doctor or doctor.is_internal:
+                    continue
+                area = getattr(getattr(doctor, 'address_details', None), 'area', None)
+                if area is None:
+                    continue
+                is_complete = bool(
+                    doctor.contact_number and str(doctor.contact_number).strip() and
+                    doctor.specialization and str(doctor.specialization).strip() and
+                    doctor.degree_qualification and str(doctor.degree_qualification).strip() and
+                    doctor.address_details and
+                    doctor.address_details.area and
+                    doctor.address_details.pincode and str(doctor.address_details.pincode).strip() and
+                    visit.visit_image
+                )
+                if visit.status != 'Referred' or not is_complete:
+                    continue
+
+                current_assignment = AgentAssignment.objects.filter(
+                    agent=trip.agent,
+                    area=area
+                ).order_by('-assigned_at').first()
+                if current_assignment is None:
+                    continue
+
+                AgentAssignmentDoctorStatus.objects.get_or_create(
+                    assignment=current_assignment,
+                    doctor=doctor,
+                    defaults={'is_active': True}
+                )
+                AgentAssignmentDoctorStatus.objects.filter(
+                    assignment=current_assignment,
+                    doctor__name__iexact=doctor.name
+                ).update(
+                    is_visited=True,
+                    visit_trip=trip,
+                    visited_at=timezone.now()
+                )
+        except Exception as e:
+            print(f"Trip completion assignment update error: {e}")
         serializer = self.get_serializer(trip)
         return Response(serializer.data)
 
@@ -319,8 +368,7 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         return trip, None
 
     def _get_master_payload(self, request):
-        data = request.data.copy()
-        visit_only_fields = [
+        visit_only_fields = {
             'trip',
             'trip_id',
             'doctor_id',
@@ -330,12 +378,14 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
             'visit_lat',
             'visit_long',
             'visit_image',
-        ]
-        for field in visit_only_fields:
-            if field in data:
-                data.pop(field)
-        if 'id' in data:
-            data.pop('id')
+            'id',
+        }
+        # Avoid QueryDict.copy() which deep-copies file handles and can error.
+        data = {}
+        for key in request.data:
+            if key in visit_only_fields:
+                continue
+            data[key] = request.data.get(key)
         return data
 
     def _resolve_or_create_doctor(self, request):

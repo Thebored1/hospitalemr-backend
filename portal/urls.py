@@ -16,11 +16,11 @@ urlpatterns = [
     path('agents/assignments/', views.AgentAssignmentListView.as_view(), name='agent_assignment_list'),
     path('agents/assignments/create/', views.AgentAssignmentCreateView.as_view(), name='agent_assignment_create'),
     path('agents/assignments/<int:pk>/', views.AgentAssignmentDetailView.as_view(), name='agent_assignment_detail'),
-    path('agents/assignments/<int:pk>/delete/', views.AgentAssignmentDeleteView.as_view(), name='agent_assignment_delete'),
     
     # Trip Management (view-only - agents create trips via mobile app)
     path('trips/', views.TripListView.as_view(), name='trip_list'),
     path('trips/<int:pk>/', views.TripDetailView.as_view(), name='trip_detail'),
+    path('trips/<int:pk>/assign-doctors/', views.AssignDoctorsView.as_view(), name='trip_assign_doctors'),
     
     # Doctor Master Table
     path('doctors/', views.DoctorListView.as_view(), name='doctor_list'),
@@ -38,11 +38,11 @@ urlpatterns = [
     
     # Area Management
     path('areas/', views.AreaListView.as_view(), name='area_list'),
-    
-    # Area Management
-    path('areas/', views.AreaListView.as_view(), name='area_list'),
     path('areas/create/', views.AreaCreateView.as_view(), name='area_create'),
     path('areas/<int:pk>/edit/', views.AreaUpdateView.as_view(), name='area_edit'),
+
+    # Bulk Doctor Assignment
+    path('doctors/assign/', views.DoctorAssignmentView.as_view(), name='doctor_assignment'),
     
     # Patient Referrals
     path('patients/', views.PatientReferralListView.as_view(), name='patient_list'),

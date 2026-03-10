@@ -29,7 +29,7 @@
                         <td>
                             {% if area.agent %}
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                {{ area.agent.username }}
+                                {{ area.agent.get_full_name|default:area.agent.username }}
                             </span>
                             {% else %}
                             <span class="badge bg-secondary-subtle text-secondary">Unassigned</span>

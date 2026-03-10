@@ -96,8 +96,8 @@
                         <th style="width: 40%">Assigned Agent:</th>
                         <td>
                             <i class="bi bi-person-circle me-1"></i>
-                            {% if doctor.agent %}
-                            {{ doctor.agent.get_full_name|default:doctor.agent.username }}
+                            {% if assigned_agent %}
+                            {{ assigned_agent.get_full_name|default:assigned_agent.username }}
                             {% else %}
                             <span class="text-muted">Unassigned</span>
                             {% endif %}
@@ -172,7 +172,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-clock-history me-2"></i>Visit History ({{ visit_history.count }} other entries)
+                <i class="bi bi-clock-history me-2"></i>Visit History ({{ visit_history_count }} other entries)
             </div>
             <div class="card-body p-0">
                 <table class="table table-hover mb-0">
@@ -191,8 +191,9 @@
                         <tr>
                             <td>{{ entry.created_at|date:"M d, Y" }}</td>
                             <td>
-                                {% if entry.agent %}
-                                <i class="bi bi-person-circle me-1"></i>{{ entry.agent.username }}
+                                {% if entry.effective_agent %}
+                                <i class="bi bi-person-circle me-1"></i>{{
+                                entry.effective_agent.get_full_name|default:entry.effective_agent.username }}
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}

@@ -19,7 +19,7 @@
                     <option value="">All Agents</option>
                     {% for agent in agents %}
                     <option value="{{ agent.pk }}" {% if request.GET.agent == agent.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ agent.username }}
+                        {{ agent.get_full_name|default:agent.username }}
                     </option>
                     {% endfor %}
                 </select>
@@ -62,7 +62,7 @@
                 <tr>
                     <td>
                         <i class="bi bi-person-badge me-1"></i>
-                        <strong>{{ assignment.agent.username }}</strong>
+                        <strong>{{ assignment.agent.get_full_name|default:assignment.agent.username }}</strong>
                     </td>
                     <td>
                         {{ assignment.area.name }}
@@ -84,13 +84,6 @@
                             class="btn btn-sm btn-outline-primary" title="View Details">
                             <i class="bi bi-eye"></i> View
                         </a>
-                        <form method="post" action="{% url 'portal:agent_assignment_delete' assignment.pk %}"
-                            class="d-inline ms-1" onsubmit="return confirm('Delete this assignment?')">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
                     </td>
                 </tr>
                 {% empty %}
