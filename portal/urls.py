@@ -6,6 +6,11 @@ app_name = 'portal'
 urlpatterns = [
     # Dashboard
     path('', views.DashboardView.as_view(), name='dashboard'),
+
+    # Backups (superuser only)
+    path('backups/', views.BackupDashboardView.as_view(), name='backup_dashboard'),
+    path('backups/export/', views.backup_export, name='backup_export'),
+    path('backups/import/', views.backup_import, name='backup_import'),
     
     # Agent Management
     path('agents/', views.AgentListView.as_view(), name='agent_list'),

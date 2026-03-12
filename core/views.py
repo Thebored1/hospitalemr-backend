@@ -457,6 +457,8 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         for field in ['remarks', 'additional_details', 'visit_lat', 'visit_long']:
             if field in request.data:
                 visit_defaults[field] = request.data.get(field)
+        if 'is_draft' in request.data:
+            visit_defaults['is_draft'] = self._coerce_bool(request.data.get('is_draft'))
 
         visit, created = DoctorVisit.objects.get_or_create(
             doctor=doctor,
@@ -472,6 +474,11 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                     if getattr(visit, field) != value:
                         setattr(visit, field, value)
                         changed = True
+            if 'is_draft' in request.data:
+                value = self._coerce_bool(request.data.get('is_draft'))
+                if visit.is_draft != value:
+                    visit.is_draft = value
+                    changed = True
 
         if 'visit_image' in request.FILES:
             visit.visit_image = request.FILES['visit_image']
@@ -614,7 +621,9 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         visit, _ = DoctorVisit.objects.get_or_create(
             doctor=doctor,
             trip=trip,
-            defaults={'status': 'Referred'},
+            defaults={
+                'status': 'Referred',
+            },
         )
         if doctor.trip_id != trip.id:
             doctor.trip = trip

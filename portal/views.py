@@ -1,3 +1,10 @@
+import json
+import os
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
@@ -7,6 +14,9 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.utils.decorators import method_decorator
 from django.db.models import Count, Q, Sum, F
 from django.utils import timezone
+from django.http import FileResponse, HttpResponseForbidden
+from django.core.management import call_command
+from django.conf import settings
 
 from core.models import User, Trip, DoctorReferral, PatientReferral, OvernightStay, Admission, Area, Address, AgentAssignment, DoctorCommissionProfile, PaymentCategory, AgentAssignmentDoctorStatus
 from .forms import AgentCreationForm, AgentUpdateForm, AgentPasswordForm, TripCreateForm, DoctorAssignmentForm, AdmissionForm, DoctorForm, AgentSelectionForm, AreaForm, AddressForm, AgentAssignmentForm
@@ -43,6 +53,167 @@ class DashboardView(PortalMixin, TemplateView):
         context['recent_trips'] = Trip.objects.select_related('agent').order_by('-start_time')[:5]
         
         return context
+
+
+class BackupDashboardView(PortalMixin, TemplateView):
+    template_name = 'portal/backups/dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['media_root'] = str(getattr(settings, 'MEDIA_ROOT', ''))
+        context['media_url'] = getattr(settings, 'MEDIA_URL', '/media/')
+        return context
+
+
+def _require_superuser(request):
+    if not getattr(request.user, 'is_superuser', False):
+        return False
+    return True
+
+
+@staff_member_required
+def backup_export(request):
+    if not _require_superuser(request):
+        return HttpResponseForbidden("Only superusers can export backups.")
+
+    include_media = request.GET.get('include_media', '1') == '1'
+    indent = int(request.GET.get('indent', '2') or 2)
+
+    base_dir = Path(getattr(settings, 'BASE_DIR', Path.cwd()))
+    media_root = Path(getattr(settings, 'MEDIA_ROOT', '')) if include_media else None
+
+    tmp_file = tempfile.NamedTemporaryFile(prefix='backup_', suffix='.zip', delete=False)
+    tmp_path = Path(tmp_file.name)
+    tmp_file.close()
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            fixture_path = tmp_dir_path / 'data.json'
+            meta_path = tmp_dir_path / 'meta.json'
+
+            with fixture_path.open('w', encoding='utf-8') as out:
+                call_command(
+                    'dumpdata',
+                    natural_foreign=True,
+                    natural_primary=True,
+                    indent=indent,
+                    stdout=out,
+                )
+
+            meta = {
+                'created_at': timezone.now().isoformat(),
+                'base_dir': str(base_dir),
+                'included_media': bool(include_media),
+                'media_root': str(media_root) if media_root else None,
+            }
+            meta_path.write_text(json.dumps(meta, indent=2), encoding='utf-8')
+
+            with zipfile.ZipFile(tmp_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.write(fixture_path, arcname='fixture/data.json')
+                zf.write(meta_path, arcname='meta.json')
+
+                if include_media and media_root and media_root.exists():
+                    for file_path in media_root.rglob('*'):
+                        if not file_path.is_file():
+                            continue
+                        rel = file_path.relative_to(media_root)
+                        zf.write(file_path, arcname=str(Path('media') / rel))
+    except Exception as e:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        messages.error(request, f"Export failed: {e}")
+        return redirect('portal:backup_dashboard')
+
+    download_name = f"hospitalemr-backup-{timezone.now().strftime('%Y%m%d-%H%M%S')}.zip"
+    response = FileResponse(open(tmp_path, 'rb'), as_attachment=True, filename=download_name)
+
+    # Ensure temp file is removed after response is closed.
+    response._resource_closers.append(lambda: os.remove(tmp_path))
+    return response
+
+
+@staff_member_required
+def backup_import(request):
+    if not _require_superuser(request):
+        return HttpResponseForbidden("Only superusers can import backups.")
+
+    if request.method != 'POST':
+        return redirect('portal:backup_dashboard')
+
+    bundle = request.FILES.get('bundle')
+    if bundle is None:
+        messages.error(request, "Please choose a backup .zip file to import.")
+        return redirect('portal:backup_dashboard')
+
+    confirm = request.POST.get('confirm', '') == 'on'
+    if not confirm:
+        messages.error(request, "Please confirm you understand this will overwrite data.")
+        return redirect('portal:backup_dashboard')
+
+    do_flush = request.POST.get('flush', '') == 'on'
+    media_mode = request.POST.get('media_mode', 'merge')
+    if media_mode not in ('merge', 'replace', 'skip'):
+        media_mode = 'merge'
+
+    media_root = Path(getattr(settings, 'MEDIA_ROOT', '') or '')
+    if media_mode != 'skip' and not str(media_root).strip():
+        messages.error(request, "MEDIA_ROOT is not configured; use media mode 'skip'.")
+        return redirect('portal:backup_dashboard')
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            bundle_path = tmp_dir_path / 'bundle.zip'
+            with bundle_path.open('wb') as out:
+                for chunk in bundle.chunks():
+                    out.write(chunk)
+
+            with zipfile.ZipFile(bundle_path, 'r') as zf:
+                zf.extractall(tmp_dir_path)
+
+            fixture_path = tmp_dir_path / 'fixture' / 'data.json'
+            if not fixture_path.exists():
+                messages.error(request, "Invalid backup: fixture/data.json not found.")
+                return redirect('portal:backup_dashboard')
+
+            if do_flush:
+                # WARNING: This will wipe sessions/tokens; you may need to log in again.
+                call_command('flush', '--noinput')
+
+            call_command('loaddata', str(fixture_path))
+
+            bundle_media = tmp_dir_path / 'media'
+            if media_mode != 'skip' and bundle_media.exists():
+                media_root.mkdir(parents=True, exist_ok=True)
+                if media_mode == 'replace':
+                    for child in media_root.iterdir():
+                        if child.is_dir():
+                            shutil.rmtree(child, ignore_errors=True)
+                        else:
+                            try:
+                                child.unlink()
+                            except FileNotFoundError:
+                                pass
+                for source in bundle_media.rglob('*'):
+                    if not source.is_file():
+                        continue
+                    rel = source.relative_to(bundle_media)
+                    dest = media_root / rel
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, dest)
+
+    except Exception as e:
+        messages.error(request, f"Import failed: {e}")
+        return redirect('portal:backup_dashboard')
+
+    messages.success(
+        request,
+        "Backup imported successfully. If you selected flush, you may need to log in again.",
+    )
+    return redirect('portal:backup_dashboard')
 
 
 # ============ Agent Management ============
