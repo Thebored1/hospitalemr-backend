@@ -159,12 +159,25 @@ if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-# Default to persistent disk on Render so uploaded files survive deploy/restart.
-# You can still override this explicitly with MEDIA_ROOT env var.
-if os.environ.get('RENDER', '').lower() == 'true':
-    default_media_root = '/var/data/media'
+# Media storage
+# - In local/dev and most hosts: store under BASE_DIR/media.
+# - On Render: prefer a persistent disk at /var/data/media, but safely fall back
+#   when the disk isn't attached (free plan / misconfiguration) so uploads don't 500.
+render_enabled = os.environ.get('RENDER', '').lower() == 'true'
+env_media_root = os.environ.get('MEDIA_ROOT')
+if env_media_root:
+    MEDIA_ROOT = Path(env_media_root)
 else:
-    default_media_root = str(BASE_DIR / 'media')
-MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', default_media_root))
+    if render_enabled:
+        preferred = Path('/var/data/media')
+        try:
+            # If /var/data isn't present, avoid writing there (prevents PermissionError/FileNotFoundError).
+            if not Path('/var/data').exists():
+                preferred = Path(BASE_DIR) / 'media'
+        except Exception:
+            preferred = Path(BASE_DIR) / 'media'
+        MEDIA_ROOT = preferred
+    else:
+        MEDIA_ROOT = Path(BASE_DIR) / 'media'
 SERVE_MEDIA_IN_PROD = os.environ.get('SERVE_MEDIA_IN_PROD', 'true').lower() == 'true'
 
