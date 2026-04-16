@@ -71,12 +71,10 @@
                             <div class="d-flex align-items-center">
                                 <div class="avatar-sm bg-light rounded-circle text-primary me-2 d-flex align-items-center justify-content-center"
                                     style="width: 32px; height: 32px;">
-                                    {{ patient.agent.get_full_name|default:patient.agent.username|make_list|first|upper
-                                    }}
+                                    {{ patient.agent.full_name_or_username|make_list|first|upper }}
                                 </div>
                                 <div>
-                                    <div class="small fw-bold">{{
-                                        patient.agent.get_full_name|default:patient.agent.username }}</div>
+                                    <div class="small fw-bold">{{ patient.agent.full_name_or_username }}</div>
                                 </div>
                             </div>
                         </td>
@@ -91,8 +89,7 @@
                             <span
                                 class="badge bg-success-subtle text-success border border-success-subtle">Admitted</span>
                             {% else %}
-                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{
-                                patient.status }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{ patient.status }}</span>
                             {% endif %}
                         </td>
                     </tr>

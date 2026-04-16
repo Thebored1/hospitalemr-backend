@@ -97,7 +97,7 @@
                         <td>
                             <i class="bi bi-person-circle me-1"></i>
                             {% if assigned_agent %}
-                            {{ assigned_agent.get_full_name|default:assigned_agent.username }}
+                            {{ assigned_agent.full_name_or_username }}
                             {% else %}
                             <span class="text-muted">Unassigned</span>
                             {% endif %}
@@ -192,8 +192,7 @@
                             <td>{{ entry.created_at|date:"M d, Y" }}</td>
                             <td>
                                 {% if entry.effective_agent %}
-                                <i class="bi bi-person-circle me-1"></i>{{
-                                entry.effective_agent.get_full_name|default:entry.effective_agent.username }}
+                                <i class="bi bi-person-circle me-1"></i>{{ entry.effective_agent.full_name_or_username }}
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}

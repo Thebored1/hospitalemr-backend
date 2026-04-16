@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.exceptions import ValidationError
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from .models import Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, User, AgentAssignment, AgentAssignmentDoctorStatus, ClientLog
@@ -451,14 +452,17 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
         return serializer.save()
 
     def _upsert_doctor_visit(self, doctor, trip, request):
+        is_draft = None
+        if 'is_draft' in request.data:
+            is_draft = self._coerce_bool(request.data.get('is_draft'))
         visit_defaults = {
             'status': request.data.get('status') or 'Referred',
         }
         for field in ['remarks', 'additional_details', 'visit_lat', 'visit_long']:
             if field in request.data:
                 visit_defaults[field] = request.data.get(field)
-        if 'is_draft' in request.data:
-            visit_defaults['is_draft'] = self._coerce_bool(request.data.get('is_draft'))
+        if is_draft is not None:
+            visit_defaults['is_draft'] = is_draft
 
         visit, created = DoctorVisit.objects.get_or_create(
             doctor=doctor,
@@ -474,15 +478,19 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
                     if getattr(visit, field) != value:
                         setattr(visit, field, value)
                         changed = True
-            if 'is_draft' in request.data:
-                value = self._coerce_bool(request.data.get('is_draft'))
-                if visit.is_draft != value:
-                    visit.is_draft = value
+            if is_draft is not None:
+                if visit.is_draft != is_draft:
+                    visit.is_draft = is_draft
                     changed = True
 
         if 'visit_image' in request.FILES:
             visit.visit_image = request.FILES['visit_image']
             changed = True
+
+        if is_draft is not True:
+            has_image = bool(visit.visit_image) or 'visit_image' in request.FILES
+            if not has_image:
+                raise ValidationError({'visit_image': 'This field is required for completed visits.'})
 
         if changed:
             visit.save()

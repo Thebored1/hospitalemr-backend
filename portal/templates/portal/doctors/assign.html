@@ -86,8 +86,7 @@
                         </td>
                         <td>
                             {% if doctor.agent %}
-                            <span class="badge bg-info text-dark">{{
-                                doctor.agent.get_full_name|default:doctor.agent.username }}</span>
+                            <span class="badge bg-info text-dark">{{ doctor.agent.full_name_or_username }}</span>
                             {% else %}
                             <span class="badge bg-secondary">Unassigned</span>
                             {% endif %}

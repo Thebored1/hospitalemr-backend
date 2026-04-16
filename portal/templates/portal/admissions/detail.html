@@ -85,9 +85,7 @@
                         <td>
                             {% if admission.referred_by_doctor.agent %}
                             <i class="bi bi-person-circle me-1"></i>
-                            {{
-                            admission.referred_by_doctor.agent.get_full_name|default:admission.referred_by_doctor.agent.username
-                            }}
+                            {{ admission.referred_by_doctor.agent.full_name_or_username }}
                             {% else %}
                             <span class="text-muted">Unassigned</span>
                             {% endif %}
@@ -95,7 +93,7 @@
                     </tr>
                     <tr>
                         <th>Referral Amount:</th>
-                        <td><strong class="text-success">₹{{ admission.referral_amount|floatformat:2 }}</strong></td>
+                        <td><strong class="text-success">₹{{ admission.commission_amount|default_if_none:0|floatformat:2 }}</strong></td>
                     </tr>
                 </table>
                 {% else %}
@@ -154,8 +152,15 @@
                         <tr>
                             <td>
                                 <i class="bi bi-clipboard2-pulse me-2 text-muted"></i>Investigation
-                                <span class="badge bg-secondary ms-1">{{ admission.get_investigation_type_display
-                                    }}</span>
+                                <span class="badge bg-secondary ms-1">
+                                    {% if admission.investigation_type == 'IN_HOUSE' %}
+                                    In-House
+                                    {% elif admission.investigation_type == 'OUTSIDE' %}
+                                    Outside
+                                    {% else %}
+                                    {{ admission.investigation_type|default:"-" }}
+                                    {% endif %}
+                                </span>
                             </td>
                             <td class="text-end">{{ admission.investigation_charges|floatformat:2 }}</td>
                         </tr>

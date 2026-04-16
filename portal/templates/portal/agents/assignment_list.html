@@ -19,7 +19,7 @@
                     <option value="">All Agents</option>
                     {% for agent in agents %}
                     <option value="{{ agent.pk }}" {% if request.GET.agent == agent.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ agent.get_full_name|default:agent.username }}
+                        {{ agent.full_name_or_username }}
                     </option>
                     {% endfor %}
                 </select>
@@ -62,7 +62,7 @@
                 <tr>
                     <td>
                         <i class="bi bi-person-badge me-1"></i>
-                        <strong>{{ assignment.agent.get_full_name|default:assignment.agent.username }}</strong>
+                        <strong>{{ assignment.agent.full_name_or_username }}</strong>
                     </td>
                     <td>
                         {{ assignment.area.name }}

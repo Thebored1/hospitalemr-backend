@@ -33,8 +33,8 @@
                                 data-phone="{{ pr.phone|default_if_none:'' }}"
                                 data-age="{{ pr.age|default_if_none:'' }}"
                                 data-gender="{{ pr.gender|default_if_none:'' }}"
-                                data-agent="{{ pr.agent.get_full_name|default:pr.agent.username }}">
-                                Agent: {{ pr.agent.get_full_name|default:pr.agent.username }} | {{ pr.illness }}
+                                data-agent="{{ pr.agent.full_name_or_username }}">
+                                Agent: {{ pr.agent.full_name_or_username }} | {{ pr.illness }}
                             </option>
                             {% endfor %}
                         </datalist>
@@ -109,10 +109,10 @@
                             </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Standard Discount</label>
+                            <label class="form-label">Standard Referral %</label>
                             <div class="form-control bg-light">
-                                <span id="discount-display" class="fw-bold text-success">0%</span>
-                                <small class="text-muted ms-2">(Applied to total bill)</small>
+                                <span id="referral-display" class="fw-bold text-success">0%</span>
+                                <small class="text-muted ms-2">(Referral percentage for this category)</small>
                             </div>
                         </div>
                     </div>
@@ -307,7 +307,7 @@
         let rates = {
             bed: 0, nursing: 0, doctor: 0, investigation: 0,
             procedural: 0, anaesthesia: 0, surgeon: 0, other: 0,
-            discount: 0 // Added discount rate
+            referral: 0
         };
 
         function fetchRates() {
@@ -336,7 +336,7 @@
                         anaesthesia: parseFloat(data.anaesthesia_charges_rate || 0),
                         surgeon: parseFloat(data.surgeon_charges_rate || 0),
                         other: parseFloat(data.other_charges_rate || 0),
-                        discount: parseFloat(data.discount_percentage || 0) // Fetch discount %
+                        referral: parseFloat(data.referral_percentage ?? data.discount_percentage ?? 0)
                     };
                     updateDisplay();
                     calculateTotals();
@@ -354,7 +354,7 @@
             document.getElementById('rate-surgeon').innerText = rates.surgeon + '%';
             document.getElementById('rate-other').innerText = rates.other + '%';
 
-            // Show discount hint - removed as it is now main display
+            // Referral percentage is shown in the summary card above.
         }
 
         function calculateCommission(amount, rate) {
@@ -386,10 +386,10 @@
             document.getElementById('total-commission').innerText = totalCommission.toFixed(2);
             inputs.commission_field.value = totalCommission.toFixed(2);
 
-            // Update discount display
-            const discountDisplay = document.getElementById('discount-display');
-            if (discountDisplay) {
-                discountDisplay.innerText = rates.discount + '%';
+            // Update referral percentage display
+            const referralDisplay = document.getElementById('referral-display');
+            if (referralDisplay) {
+                referralDisplay.innerText = rates.referral + '%';
             }
         }
 

@@ -18,7 +18,7 @@ from django.http import FileResponse, HttpResponseForbidden
 from django.core.management import call_command
 from django.conf import settings
 
-from core.models import User, Trip, DoctorReferral, PatientReferral, OvernightStay, Admission, Area, Address, AgentAssignment, DoctorCommissionProfile, PaymentCategory, AgentAssignmentDoctorStatus
+from core.models import User, Trip, DoctorReferral, DoctorVisit, PatientReferral, OvernightStay, Admission, Area, Address, AgentAssignment, DoctorCommissionProfile, PaymentCategory, AgentAssignmentDoctorStatus
 from .forms import AgentCreationForm, AgentUpdateForm, AgentPasswordForm, TripCreateForm, DoctorAssignmentForm, AdmissionForm, DoctorForm, AgentSelectionForm, AreaForm, AddressForm, AgentAssignmentForm
 from core.serializers import (
     UserSerializer, DoctorReferralSerializer, PatientReferralSerializer, 
@@ -984,6 +984,7 @@ class ReportsDashboardView(PortalMixin, TemplateView):
                 F('investigation_charges') + F('procedural_surgical_charges') + 
                 F('anaesthesia_charges') + F('surgeon_charges') + F('other_charges')
             ),
+            total_commission=Sum('commission_amount'),
             opd_count=Count('id', filter=Q(admission_type='OPD')),
             ipd_count=Count('id', filter=Q(admission_type='IPD'))
         ).order_by('-total_revenue')
@@ -1011,6 +1012,7 @@ class ReportsDashboardView(PortalMixin, TemplateView):
                 full_doctor_stats.append({
                     'referred_by_doctor__name': doc_name,
                     'total_revenue': 0,
+                    'total_commission': 0,
                     'opd_count': 0,
                     'ipd_count': 0
                 })
@@ -1019,47 +1021,98 @@ class ReportsDashboardView(PortalMixin, TemplateView):
         full_doctor_stats.sort(key=lambda x: x.get('total_revenue', 0) or 0, reverse=True)
 
         
-        # --- 2. Agent-wise Revenue Report ---
-        agent_revenue = filtered_admissions.filter(patient_referral__agent__isnull=False).values(
-            'patient_referral__agent__username',
-            'patient_referral__agent__first_name',
-            'patient_referral__agent__last_name'
-        ).annotate(
-            total_revenue=Sum(
-                F('bed_charges') + F('nursing_charges') + F('doctor_consultation_charges') + 
-                F('investigation_charges') + F('procedural_surgical_charges') + 
-                F('anaesthesia_charges') + F('surgeon_charges') + F('other_charges')
-            ),
-            opd_count=Count('id', filter=Q(admission_type='OPD')),
-            ipd_count=Count('id', filter=Q(admission_type='IPD'))
-        ).order_by('-total_revenue')
-
-        # --- 2b. Merge with All Agents (to show 0 revenue agents) ---
-        # Only if no specific agent is selected, or if selected, ensure they appear
-        # Simple approach: Get all advisors, or filtered agent
+        # --- 2. Agent-wise Activity Report ---
         agent_qs = User.objects.filter(role='advisor', is_active=True)
         if agent_id:
             agent_qs = agent_qs.filter(id=agent_id)
-        
-        all_agents = agent_qs.values('username', 'first_name', 'last_name')
-        
-        # Start with actual revenue data to ensure accuracy
-        full_agent_stats = list(agent_revenue)
-        existing_agent_names = {a['patient_referral__agent__username'] for a in full_agent_stats}
-        
-        # Add active agents who have no referrals in this period
-        for agent in all_agents:
-            username = agent['username']
-            if username not in existing_agent_names:
-                full_agent_stats.append({
-                    'patient_referral__agent__username': username,
-                    'patient_referral__agent__first_name': agent.get('first_name'),
-                    'patient_referral__agent__last_name': agent.get('last_name'),
-                    'total_revenue': 0,
-                    'opd_count': 0,
-                    'ipd_count': 0
-                })
-        full_agent_stats.sort(key=lambda x: x.get('total_revenue', 0) or 0, reverse=True)
+
+        agent_ids = list(agent_qs.values_list('id', flat=True))
+
+        # Doctors visited / areas visited via DoctorVisit records.
+        doctor_visit_qs = DoctorVisit.objects.filter(trip__agent_id__in=agent_ids)
+        if date_start:
+            doctor_visit_qs = doctor_visit_qs.filter(trip__start_time__date__gte=date_start)
+        if date_end:
+            doctor_visit_qs = doctor_visit_qs.filter(trip__start_time__date__lte=date_end)
+        if area_id:
+            doctor_visit_qs = doctor_visit_qs.filter(doctor__address_details__area_id=area_id)
+        if doctor_id:
+            doctor_visit_qs = doctor_visit_qs.filter(doctor_id=doctor_id)
+        if spec:
+            doctor_visit_qs = doctor_visit_qs.filter(doctor__specialization__iexact=spec)
+
+        visit_stats = doctor_visit_qs.values('trip__agent_id').annotate(
+            doctors_visited=Count('doctor_id', distinct=True),
+            areas_visited=Count('doctor__address_details__area_id', distinct=True),
+        )
+        visit_map = {
+            row['trip__agent_id']: {
+                'doctors_visited': row.get('doctors_visited', 0) or 0,
+                'areas_visited': row.get('areas_visited', 0) or 0,
+            }
+            for row in visit_stats
+        }
+
+        # KM travelled via Trip records.
+        trip_qs = Trip.objects.filter(agent_id__in=agent_ids)
+        if date_start:
+            trip_qs = trip_qs.filter(start_time__date__gte=date_start)
+        if date_end:
+            trip_qs = trip_qs.filter(start_time__date__lte=date_end)
+        if area_id:
+            trip_qs = trip_qs.filter(doctor_visits__doctor__address_details__area_id=area_id)
+        if doctor_id:
+            trip_qs = trip_qs.filter(doctor_visits__doctor_id=doctor_id)
+        if spec:
+            trip_qs = trip_qs.filter(doctor_visits__doctor__specialization__iexact=spec)
+        trip_rows = trip_qs.values('agent_id', 'id', 'total_kilometers').distinct()
+        km_map = {}
+        for row in trip_rows:
+            a_id = row['agent_id']
+            km_map[a_id] = km_map.get(a_id, 0.0) + float(row.get('total_kilometers') or 0.0)
+
+        # Direct patients referred via PatientReferral records.
+        patient_ref_qs = PatientReferral.objects.filter(agent_id__in=agent_ids)
+        if date_start:
+            patient_ref_qs = patient_ref_qs.filter(reported_on__date__gte=date_start)
+        if date_end:
+            patient_ref_qs = patient_ref_qs.filter(reported_on__date__lte=date_end)
+        if area_id:
+            patient_ref_qs = patient_ref_qs.filter(referred_by_doctor__address_details__area_id=area_id)
+        if doctor_id:
+            patient_ref_qs = patient_ref_qs.filter(referred_by_doctor_id=doctor_id)
+        if spec:
+            patient_ref_qs = patient_ref_qs.filter(referred_by_doctor__specialization__iexact=spec)
+
+        patient_ref_stats = patient_ref_qs.values('agent_id').annotate(
+            direct_patients_referred=Count('id')
+        )
+        patient_ref_map = {
+            row['agent_id']: row.get('direct_patients_referred', 0) or 0
+            for row in patient_ref_stats
+        }
+
+        full_agent_stats = []
+        for agent in agent_qs.values('id', 'username', 'first_name', 'last_name'):
+            a_id = agent['id']
+            full_agent_stats.append({
+                'patient_referral__agent__username': agent['username'],
+                'patient_referral__agent__first_name': agent.get('first_name'),
+                'patient_referral__agent__last_name': agent.get('last_name'),
+                'doctors_visited': visit_map.get(a_id, {}).get('doctors_visited', 0),
+                'kms_travelled': km_map.get(a_id, 0.0),
+                'areas_visited': visit_map.get(a_id, {}).get('areas_visited', 0),
+                'direct_patients_referred': patient_ref_map.get(a_id, 0),
+            })
+
+        full_agent_stats.sort(
+            key=lambda x: (
+                x.get('direct_patients_referred', 0),
+                x.get('doctors_visited', 0),
+                x.get('kms_travelled', 0),
+            ),
+            reverse=True
+        )
 
         
         # --- 3. Category-wise Patient Details ---
@@ -1102,14 +1155,6 @@ class ReportsDashboardView(PortalMixin, TemplateView):
             opd_count=Count('id', filter=Q(admission_type='OPD')),
             ipd_count=Count('id', filter=Q(admission_type='IPD'))
         )
-
-        # Count of unique doctors in the filtered context
-        doc_q = Q()
-        if area_id: doc_q &= Q(address_details__area_id=area_id)
-        if spec: doc_q &= Q(specialization__iexact=spec)
-        if doctor_id: doc_q &= Q(id=doctor_id)
-        if agent_id: doc_q &= Q(agent_id=agent_id)
-        explorer_stats['doctor_count'] = DoctorReferral.objects.filter(doc_q).count()
 
         # --- 5. Total Summary Stats (Filtered) ---
         total_summary = filtered_admissions.aggregate(
@@ -1493,6 +1538,7 @@ def get_commission_rates(request):
             'surgeon_charges_rate': profile.surgeon_charges_rate,
             'other_charges_rate': profile.other_charges_rate,
             'discount_percentage': profile.discount_percentage,
+            'referral_percentage': profile.discount_percentage,
         })
     except DoctorCommissionProfile.DoesNotExist:
         # Return all zeros if no profile exists
@@ -1506,6 +1552,7 @@ def get_commission_rates(request):
             'surgeon_charges_rate': 0.0,
             'other_charges_rate': 0.0,
             'discount_percentage': 0.0,
+            'referral_percentage': 0.0,
         })
 
 

@@ -8,6 +8,11 @@ class User(AbstractUser):
         ('admin', 'Admin'),
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='advisor')
+    
+    @property
+    def full_name_or_username(self):
+        full_name = self.get_full_name()
+        return full_name if full_name else self.username
 
 class Task(models.Model):
     STATUS_CHOICES = (
@@ -253,8 +258,8 @@ class DoctorCommissionProfile(models.Model):
     surgeon_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Surgeon Charges")
     other_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Other Charges")
     
-    # Discount Configuration
-    discount_percentage = models.FloatField(default=0.0, help_text="Standard Discount % for this category")
+    # Referral Configuration
+    discount_percentage = models.FloatField(default=0.0, help_text="Standard Referral % for this category")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -439,8 +444,8 @@ class Admission(models.Model):
     
     @property
     def final_amount(self):
-        """Calculate final amount after discount."""
-        return max(self.total_charges - self.discount_amount, 0)
+        """Calculate final amount after referral commission."""
+        return max(self.total_charges - self.commission_amount, 0)
     
     def __str__(self):
         return f"{self.patient_name} - {self.admission_type} ({self.admission_date.date()})"

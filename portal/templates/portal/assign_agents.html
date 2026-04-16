@@ -37,7 +37,7 @@
                                     <option value="">-- Unassigned --</option>
                                     {% for agent in agents %}
                                     <option value="{{ agent.id }}" {% if area.agent_id == agent.id %}selected{% endif %}>
-                                        {{ agent.get_full_name|default:agent.username }}
+                                        {{ agent.full_name_or_username }}
                                     </option>
                                     {% endfor %}
                                 </select>

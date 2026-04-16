@@ -354,7 +354,7 @@ class AdmissionForm(forms.ModelForm):
 
 
 class DoctorCommissionForm(forms.ModelForm):
-    """Form for editing commission rates and discount."""
+    """Form for editing commission rates and referral percentage."""
     class Meta:
         model = DoctorCommissionProfile
         fields = [

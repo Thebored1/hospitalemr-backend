@@ -126,14 +126,10 @@
                     <td>
                         {% if admission.referred_by_doctor and admission.referred_by_doctor.agent %}
                         <i class="bi bi-person-circle me-1"></i>
-                        {{
-                        admission.referred_by_doctor.agent.get_full_name|default:admission.referred_by_doctor.agent.username
-                        }}
+                        {{ admission.referred_by_doctor.agent.full_name_or_username }}
                         {% elif admission.patient_referral and admission.patient_referral.agent %}
                         <i class="bi bi-person-circle me-1"></i>
-                        {{
-                        admission.patient_referral.agent.get_full_name|default:admission.patient_referral.agent.username
-                        }}
+                        {{ admission.patient_referral.agent.full_name_or_username }}
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}

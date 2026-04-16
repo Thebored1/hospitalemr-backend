@@ -95,6 +95,9 @@ TEMPLATES = [
         'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
+            # Keep missing template variables silent in production instead of
+            # displaying raw placeholder text like `{{ variable_name }}`.
+            'string_if_invalid': '',
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',

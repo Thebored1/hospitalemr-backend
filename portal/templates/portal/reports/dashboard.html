@@ -93,7 +93,7 @@
                     <option value="">All Agents</option>
                     {% for agent in agents %}
                     <option value="{{agent.id}}" {% if filters_data.agent_id == agent.id %} selected{% endif %}>
-                        {{ agent.get_full_name|default:agent.username }}</option>
+                        {{ agent.full_name_or_username }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -144,7 +144,7 @@
 
 
                 <div class="row g-4 mb-4">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="card text-center border-0 shadow-sm">
                             <div class="card-body">
                                 <h2 class="text-primary mb-0">₹
@@ -153,19 +153,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="card text-center border-0 shadow-sm">
                             <div class="card-body">
                                 <h2 class="text-success mb-0">{{explorer_stats.patient_count}}</h2>
                                 <p class="text-muted small mb-0">Total Patients</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card text-center border-0 shadow-sm">
-                            <div class="card-body">
-                                <h2 class="text-info mb-0">{{explorer_stats.doctor_count}}</h2>
-                                <p class="text-muted small mb-0">Doctors in this Context</p>
                             </div>
                         </div>
                     </div>
@@ -185,6 +177,7 @@
                                 <th>Type</th>
                                 <th>Category</th>
                                 <th class="text-end">Revenue</th>
+                                <th class="text-end">Commission</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -200,8 +193,14 @@
                                     <div class="small text-muted">{{admission.referred_by_doctor.specialization}}
                                     </div>
                                 </td>
-                                <td><span
-                                        class="badge bg-light text-dark">{{admission.patient_referral.agent.get_full_name|default:admission.patient_referral.agent.username}}</span>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {% if admission.patient_referral and admission.patient_referral.agent %}
+                                        {{ admission.patient_referral.agent.full_name_or_username }}
+                                        {% else %}
+                                        Unassigned
+                                        {% endif %}
+                                    </span>
                                 </td>
                                 <td>
                                     <span
@@ -211,7 +210,8 @@
                                 </td>
                                 <td><span class="badge bg-primary opacity-75">{{admission.payment_category.name}}</span>
                                 </td>
-                                <td class="text-end fw-bold">₹ {{admission.total_charges|floatformat:2}}</td>
+                                <td class="text-end fw-bold">&#8377; {{admission.total_charges|floatformat:2}}</td>
+                                <td class="text-end fw-bold text-success">&#8377; {{admission.commission_amount|default_if_none:0|floatformat:2}}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -229,6 +229,7 @@
                             <th class="text-center">OPD Count</th>
                             <th class="text-center">IPD Count</th>
                             <th class="text-end">Total Revenue</th>
+                            <th class="text-end">Total Commission</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -240,6 +241,7 @@
                             <td class="text-center"><span class="badge bg-light text-dark border">{{d.ipd_count}}</span>
                             </td>
                             <td class="text-end fw-bold text-primary">₹ {{d.total_revenue|floatformat:2}}</td>
+                            <td class="text-end fw-bold text-success">&#8377; {{d.total_commission|default:"0.00"|floatformat:2}}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -252,9 +254,10 @@
                     <thead class="bg-light">
                         <tr>
                             <th>Agent</th>
-                            <th class="text-center">OPD Count</th>
-                            <th class="text-center">IPD Count</th>
-                            <th class="text-end">Total Revenue</th>
+                            <th class="text-center">Doctors Visited</th>
+                            <th class="text-center">KMs Travelled</th>
+                            <th class="text-center">Areas Visited</th>
+                            <th class="text-center">Direct Patients Referred</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -269,11 +272,14 @@
                                     {% endif %}
                                 </strong>
                             </td>
-                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.opd_count}}</span>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.doctors_visited}}</span>
                             </td>
-                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.ipd_count}}</span>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.kms_travelled|floatformat:2}}</span>
                             </td>
-                            <td class="text-end fw-bold text-success">₹ {{a.total_revenue|floatformat:2}}</td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.areas_visited}}</span>
+                            </td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{a.direct_patients_referred}}</span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
