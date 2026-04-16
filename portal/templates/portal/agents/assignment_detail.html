@@ -10,7 +10,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>
-        <i class="bi bi-geo-alt me-2"></i>Agent Assignment Details
+        <i class="bi bi-geo-alt me-2"></i>Executive Assignment Details
     </h2>
     <span class="badge bg-primary fs-6">{{ assignment.assigned_at|date:"M d, Y" }}</span>
 </div>
@@ -41,11 +41,11 @@
         </div>
     </div>
 
-    <!-- Agent Info -->
+    <!-- Executive Info -->
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-person-badge me-2"></i>Assigned Agent
+                <i class="bi bi-person-badge me-2"></i>Assigned Executive
             </div>
             <div class="card-body">
                 <table class="table table-sm table-borderless mb-0">
@@ -55,7 +55,7 @@
                             <strong>{{ assignment.agent.username }}</strong>
                             <a href="{% url 'portal:agent_edit' assignment.agent.pk %}"
                                 class="btn btn-sm btn-outline-secondary ms-2">
-                                <i class="bi bi-pencil"></i> View Agent
+                                <i class="bi bi-pencil"></i> View Executive
                             </a>
                         </td>
                     </tr>
@@ -115,7 +115,7 @@
                         <td>{{ assignment.area.region|default:"-" }}</td>
                     </tr>
                     <tr>
-                        <th>Current Agent:</th>
+                        <th>Current Executive:</th>
                         <td>
                             {% if assignment.area.agent %}
                             <i class="bi bi-person-circle me-1"></i>
@@ -251,7 +251,7 @@
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Agent</th>
+                    <th>Executive</th>
                     <th>Notes</th>
 
                 </tr>

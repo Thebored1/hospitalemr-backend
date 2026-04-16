@@ -12,14 +12,14 @@
                 {% if not areas_exist %}
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    <strong>No Doctors Found!</strong> You need to add doctors first before assigning agents.
+                    <strong>No Doctors Found!</strong> You need to add doctors first before assigning executives.
                     <a href="{% url 'portal:doctor_create' %}" class="alert-link">Add New Doctor</a>
                 </div>
                 {% else %}
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-2"></i>
                     <strong>Note:</strong> Creating a new assignment will automatically update the <strong>current
-                        agent</strong> for the selected Area.
+                        executive</strong> for the selected Area.
                 </div>
                 {% endif %}
 

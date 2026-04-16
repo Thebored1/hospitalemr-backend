@@ -142,13 +142,13 @@
             <li class="nav-item">
                 <a class="nav-link {% if 'agent' in request.resolver_match.url_name and 'assignment' not in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:agent_list' %}">
-                    <i class="bi bi-people"></i> Agents
+                    <i class="bi bi-people"></i> Executives
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link {% if 'assignment' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:agent_assignment_list' %}">
-                    <i class="bi bi-person-check"></i> Assign Agents
+                    <i class="bi bi-person-check"></i> Assign Executives
                 </a>
             </li>
             <li class="nav-item">

@@ -30,7 +30,7 @@
         {% if filters_data.area_id %} Area={{ filters_data.area_id }}{% endif %}
         {% if filters_data.specialization %} Specialization={{ filters_data.specialization }}{% endif %}
         {% if filters_data.doctor_id %} Doctor={{ filters_data.doctor_id }}{% endif %}
-        {% if filters_data.agent_id %} Agent={{ filters_data.agent_id }}{% endif %}
+        {% if filters_data.agent_id %} Executive={{ filters_data.agent_id }}{% endif %}
         {% if filters_data.date_start %} From={{ filters_data.date_start }}{% endif %}
         {% if filters_data.date_end %} To={{ filters_data.date_end }}{% endif %}
       </div>
@@ -62,11 +62,11 @@
         <th class="nowrap">Date</th>
         <th>Patient</th>
         <th>Doctor</th>
-        <th>Agent</th>
+        <th>Executive</th>
         <th class="nowrap">Type</th>
         <th>Category</th>
         <th class="right">Revenue</th>
-        <th class="right">Commission</th>
+        <th class="right">Referral</th>
       </tr>
       {% for admission in filtered_admissions %}
         <tr>
@@ -105,7 +105,7 @@
         <th class="right">OPD Count</th>
         <th class="right">IPD Count</th>
         <th class="right">Total Revenue</th>
-        <th class="right">Total Commission</th>
+        <th class="right">Total Referral</th>
       </tr>
       {% for row in doctor_revenue %}
         <tr>
@@ -122,10 +122,10 @@
   {% endif %}
 
   {% if active_tab == 'agents' %}
-    <h2>Agent-wise Activity</h2>
+    <h2>Executive-wise Activity</h2>
     <table>
       <tr>
-        <th>Agent</th>
+        <th>Executive</th>
         <th class="right">Doctors Visited</th>
         <th class="right">KMs Travelled</th>
         <th class="right">Areas Visited</th>
@@ -148,7 +148,7 @@
           <td class="right">{{ row.direct_patients_referred|default:0 }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="5">No agent stats found for the selected filters.</td></tr>
+        <tr><td colspan="5">No executive stats found for the selected filters.</td></tr>
       {% endfor %}
     </table>
   {% endif %}
@@ -174,4 +174,3 @@
   {% endif %}
 </body>
 </html>
-

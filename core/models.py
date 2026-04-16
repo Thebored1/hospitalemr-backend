@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
     ROLE_CHOICES = (
-        ('advisor', 'Advisor (Agent)'),
+        ('advisor', 'Advisor (Executive)'),
         ('maintenance', 'Maintenance (Staff)'),
         ('admin', 'Admin'),
     )
@@ -109,7 +109,7 @@ class Area(models.Model):
     region = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. Vidarbha, West")
     description = models.TextField(blank=True, null=True)
     
-    # Agent is assigned by Admin, not during creation usually
+    # Executive is assigned by Admin, not during creation usually
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
                             related_name='assigned_areas', limit_choices_to={'role': 'advisor'})
     created_at = models.DateTimeField(auto_now_add=True)
@@ -121,7 +121,7 @@ class Area(models.Model):
         return f"{self.name}, {self.city}"
 
 class AgentAssignment(models.Model):
-    """Log of agent assignments to areas (History/Transaction)."""
+    """Log of executive assignments to areas (History/Transaction)."""
     agent = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assignments', limit_choices_to={'role': 'advisor'})
     area = models.ForeignKey(Area, on_delete=models.CASCADE, related_name='assignment_history')
     assigned_at = models.DateTimeField(auto_now_add=True)
@@ -135,7 +135,7 @@ class AgentAssignment(models.Model):
 
 
 class AgentAssignmentDoctorStatus(models.Model):
-    """Track doctor status and visit progress per agent assignment.
+    """Track doctor status and visit progress per executive assignment.
     Each assignment gets its own set of doctor statuses, so reassignments start fresh."""
     assignment = models.ForeignKey(AgentAssignment, on_delete=models.CASCADE, related_name='doctor_statuses')
     doctor = models.ForeignKey('DoctorReferral', on_delete=models.CASCADE, related_name='assignment_statuses')
@@ -151,7 +151,7 @@ class AgentAssignmentDoctorStatus(models.Model):
 
     class Meta:
         unique_together = ('assignment', 'doctor')
-        verbose_name_plural = 'Agent Assignment Doctor Statuses'
+        verbose_name_plural = 'Executive Assignment Doctor Statuses'
 
     def __str__(self):
         active = "Active" if self.is_active else "Disabled"
@@ -175,10 +175,10 @@ class DoctorReferral(models.Model):
     # New Address Link
     address_details = models.OneToOneField(Address, on_delete=models.SET_NULL, null=True, blank=True, related_name='doctor')
     
-    # Trip is optional - assigned when agent actually visits the doctor
+    # Trip is optional - assigned when executive actually visits the doctor
     trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='doctor_referrals')
     
-    # Legacy Agent (Deprecating in favor of Area.agent)
+    # Legacy Executive (Deprecating in favor of Area.agent)
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='doctor_referrals_legacy', limit_choices_to={'role': 'advisor'})
     
     name = models.CharField(max_length=100)
@@ -190,7 +190,7 @@ class DoctorReferral(models.Model):
     remarks = models.TextField(blank=True, null=True)
     additional_details = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    is_internal = models.BooleanField(default=False, help_text="Internal doctors do not need addresses and cannot be assigned to agents.")
+    is_internal = models.BooleanField(default=False, help_text="Internal doctors do not need addresses and cannot be assigned to executives.")
     
     DOCTOR_STATUS_CHOICES = (
         ('Assigned', 'Assigned'),
@@ -243,20 +243,20 @@ class DoctorVisit(models.Model):
         return f"{self.doctor.name} visit on trip {self.trip_id}"
 
 class DoctorCommissionProfile(models.Model):
-    """Commission rates for a doctor based on payment category."""
+    """Referral rates for a doctor based on payment category."""
     
     doctor = models.ForeignKey(DoctorReferral, on_delete=models.CASCADE, related_name='commission_profiles')
     payment_category = models.ForeignKey(PaymentCategory, on_delete=models.CASCADE, related_name='commission_profiles')
     
-    # Commission Rates (Percentages)
-    bed_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Bed Charges")
-    nursing_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Nursing Charges")
-    doctor_consultation_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Doctor Consultation")
-    investigation_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Investigation Charges")
-    procedural_surgical_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Procedural/Surgical")
-    anaesthesia_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Anaesthesia")
-    surgeon_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Surgeon Charges")
-    other_charges_rate = models.FloatField(default=0.0, help_text="Commission % for Other Charges")
+    # Referral Rates (Percentages)
+    bed_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Bed Charges")
+    nursing_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Nursing Charges")
+    doctor_consultation_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Doctor Consultation")
+    investigation_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Investigation Charges")
+    procedural_surgical_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Procedural/Surgical")
+    anaesthesia_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Anaesthesia")
+    surgeon_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Surgeon Charges")
+    other_charges_rate = models.FloatField(default=0.0, help_text="Referral % for Other Charges")
     
     # Referral Configuration
     discount_percentage = models.FloatField(default=0.0, help_text="Standard Referral % for this category")
@@ -376,14 +376,14 @@ class Admission(models.Model):
         help_text='Linked patient referral for auto status updates'
     )
     
-    # Referral Information (links to doctor referred by agent)
+    # Referral Information (links to doctor referred by executive)
     referred_by_doctor = models.ForeignKey(
         'DoctorReferral', 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
         related_name='admissions',
-        help_text='Doctor who referred this patient (linked to agent for commission tracking)'
+        help_text='Doctor who referred this patient (linked to executive for referral tracking)'
     )
     referred_to_doctor = models.ForeignKey(
         'DoctorReferral', 
@@ -400,7 +400,7 @@ class Admission(models.Model):
     admission_date = models.DateTimeField(auto_now_add=True)
     discharge_date = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ADMITTED')
-    commission_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Calculated total commission")
+    commission_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Calculated total referral")
     
     # Charge Breakdown
     bed_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -444,7 +444,7 @@ class Admission(models.Model):
     
     @property
     def final_amount(self):
-        """Calculate final amount after referral commission."""
+        """Calculate final amount after referral deduction."""
         return max(self.total_charges - self.commission_amount, 0)
     
     def __str__(self):

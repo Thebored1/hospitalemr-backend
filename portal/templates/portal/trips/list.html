@@ -16,7 +16,7 @@
             </div>
             <div class="col-md-3">
                 <select name="agent" class="form-select">
-                    <option value="">All Agents</option>
+                    <option value="">All Executives</option>
                     {% for agent in agents %}
                     <option value="{{ agent.pk }}" {% if request.GET.agent == agent.pk|stringformat:"s" %}selected{% endif %}>
                         {{ agent.full_name_or_username }}
@@ -44,7 +44,7 @@
 
 <div class="alert alert-info">
     <i class="bi bi-info-circle me-2"></i>
-    <strong>Note:</strong> Trips are created by agents via the mobile app. This view shows which doctors were visited on
+    <strong>Note:</strong> Trips are created by executives via the mobile app. This view shows which doctors were visited on
     each trip.
 </div>
 
@@ -54,7 +54,7 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Agent</th>
+                    <th>Executive</th>
                     <th>Start Time</th>
                     <th>End Time</th>
                     <th>Status</th>
@@ -94,7 +94,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="8" class="text-center text-muted py-4">
-                        No trips yet. Trips are created by agents via the mobile app.
+                        No trips yet. Trips are created by executives via the mobile app.
                     </td>
                 </tr>
                 {% endfor %}

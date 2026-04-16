@@ -1,10 +1,11 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
+from decimal import Decimal
 from core.models import User, Trip, DoctorReferral, Admission, Specialization, Qualification, Area, Address, AgentAssignment, PatientReferral, DoctorCommissionProfile
 
 
 class AgentCreationForm(UserCreationForm):
-    """Form for creating new agent accounts."""
+    """Form for creating new executive accounts."""
     
     class Meta:
         model = User
@@ -18,7 +19,7 @@ class AgentCreationForm(UserCreationForm):
         
         # Repurpose username as Phone Number
         self.fields['username'].label = 'Phone Number (Login ID)'
-        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the agent.'
+        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the executive.'
         self.fields['username'].widget.attrs['placeholder'] = 'e.g. 9876543210'
         self.fields['username'].widget.attrs['type'] = 'text'
         self.fields['username'].widget.attrs['maxlength'] = '10'
@@ -42,7 +43,7 @@ class AgentCreationForm(UserCreationForm):
 
 
 class AgentUpdateForm(forms.ModelForm):
-    """Form for updating agent details (without password)."""
+    """Form for updating executive details (without password)."""
     
     class Meta:
         model = User
@@ -58,7 +59,7 @@ class AgentUpdateForm(forms.ModelForm):
 
         # Repurpose username as Phone Number
         self.fields['username'].label = 'Phone Number (Login ID)'
-        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the agent.'
+        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the executive.'
         self.fields['username'].widget.attrs['placeholder'] = 'e.g. 9876543210'
         self.fields['username'].widget.attrs['type'] = 'text'
         self.fields['username'].widget.attrs['maxlength'] = '10'
@@ -84,7 +85,7 @@ class AgentUpdateForm(forms.ModelForm):
 
 
 class AgentPasswordForm(SetPasswordForm):
-    """Form for admin to set/reset agent password."""
+    """Form for admin to set/reset executive password."""
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -93,12 +94,12 @@ class AgentPasswordForm(SetPasswordForm):
 
 
 class TripCreateForm(forms.ModelForm):
-    """Form for creating trips and assigning to agents."""
+    """Form for creating trips and assigning to executives."""
     
     agent = forms.ModelChoiceField(
         queryset=User.objects.filter(role='advisor', is_active=True),
         widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Assign to Agent'
+        label='Assign to Executive'
     )
     
     class Meta:
@@ -186,7 +187,7 @@ class AddressForm(forms.ModelForm):
 
 
 class DoctorForm(forms.ModelForm):
-    """Form for manually creating/editing doctors - assigned to agents later via trips."""
+    """Form for manually creating/editing doctors - assigned to executives later via trips."""
     
     # Specialization dropdown (Select2)
     specialization_select = forms.ModelChoiceField(
@@ -348,13 +349,67 @@ class AdmissionForm(forms.ModelForm):
         # Enable datalist autocomplete on patient name input
         self.fields['patient_name'].widget.attrs['list'] = 'patient-referral-list'
         
-        # Format doctor choices to show agent info
-        self.fields['referred_by_doctor'].label_from_instance = lambda obj: f"{obj.name} (Agent: {obj.agent.username})" if obj.agent else obj.name
+        # Format doctor choices to show executive info
+        self.fields['referred_by_doctor'].label_from_instance = lambda obj: f"{obj.name} (Executive: {obj.agent.username})" if obj.agent else obj.name
         self.fields['referred_to_doctor'].label_from_instance = lambda obj: obj.name
+
+    def _calculate_total_commission(self, profile):
+        charge_rate_map = (
+            ('bed_charges', 'bed_charges_rate'),
+            ('nursing_charges', 'nursing_charges_rate'),
+            ('doctor_consultation_charges', 'doctor_consultation_charges_rate'),
+            ('investigation_charges', 'investigation_charges_rate'),
+            ('procedural_surgical_charges', 'procedural_surgical_charges_rate'),
+            ('anaesthesia_charges', 'anaesthesia_charges_rate'),
+            ('surgeon_charges', 'surgeon_charges_rate'),
+            ('other_charges', 'other_charges_rate'),
+        )
+
+        total_charges = Decimal('0')
+        charge_wise_commission = Decimal('0')
+
+        for charge_field, rate_field in charge_rate_map:
+            amount = Decimal(self.cleaned_data.get(charge_field) or 0)
+            total_charges += amount
+            rate = Decimal(str(getattr(profile, rate_field, 0.0) or 0.0))
+            charge_wise_commission += (amount * rate) / Decimal('100')
+
+        standard_referral_rate = Decimal(str(profile.discount_percentage or 0.0))
+        standard_referral_amount = (total_charges * standard_referral_rate) / Decimal('100')
+
+        # Standard referral is always added on top of charge-wise commission.
+        return (charge_wise_commission + standard_referral_amount).quantize(Decimal('0.01'))
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        referred_by_doctor = cleaned_data.get('referred_by_doctor')
+        patient_referral = cleaned_data.get('patient_referral')
+        payment_category = cleaned_data.get('payment_category')
+
+        # If doctor is omitted in the form, derive it from linked referral when available.
+        if not referred_by_doctor and patient_referral and patient_referral.referred_by_doctor:
+            referred_by_doctor = patient_referral.referred_by_doctor
+            cleaned_data['referred_by_doctor'] = referred_by_doctor
+
+        if referred_by_doctor and payment_category:
+            try:
+                profile = DoctorCommissionProfile.objects.get(
+                    doctor=referred_by_doctor,
+                    payment_category=payment_category,
+                )
+            except DoctorCommissionProfile.DoesNotExist:
+                cleaned_data['commission_amount'] = Decimal('0.00')
+            else:
+                cleaned_data['commission_amount'] = self._calculate_total_commission(profile)
+        else:
+            cleaned_data['commission_amount'] = Decimal('0.00')
+
+        return cleaned_data
 
 
 class DoctorCommissionForm(forms.ModelForm):
-    """Form for editing commission rates and referral percentage."""
+    """Form for editing referral rates and referral percentage."""
     class Meta:
         model = DoctorCommissionProfile
         fields = [
@@ -379,19 +434,19 @@ class DoctorCommissionForm(forms.ModelForm):
 class AgentSelectionForm(forms.Form):
     agent = forms.ModelChoiceField(
         queryset=User.objects.filter(role='advisor'),
-        empty_label="Select Agent",
+        empty_label="Select Executive",
         widget=forms.Select(attrs={'class': 'form-select'}),
-        label="Assign to Agent"
+        label="Assign to Executive"
     )
 
 
 class AgentAssignmentForm(forms.ModelForm):
-    """Form for creating a new agent assignment to an area."""
+    """Form for creating a new executive assignment to an area."""
     
     agent = forms.ModelChoiceField(
         queryset=User.objects.filter(role='advisor', is_active=True),
         widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Select Agent'
+        label='Select Executive'
     )
     
     area = forms.ModelChoiceField(

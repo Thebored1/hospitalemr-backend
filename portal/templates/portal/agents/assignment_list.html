@@ -1,9 +1,9 @@
 {% extends 'portal/base.html' %}
-{% block title %}Agent Assignments{% endblock %}
+{% block title %}Executive Assignments{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-geo-alt me-2"></i>Agent Assignments</h2>
+    <h2><i class="bi bi-geo-alt me-2"></i>Executive Assignments</h2>
     <div>
         <a href="{% url 'portal:agent_assignment_create' %}" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i> New Assignment
@@ -16,7 +16,7 @@
         <form method="get" class="row g-3 align-items-center">
             <div class="col-md-4">
                 <select name="agent" class="form-select">
-                    <option value="">All Agents</option>
+                    <option value="">All Executives</option>
                     {% for agent in agents %}
                     <option value="{{ agent.pk }}" {% if request.GET.agent == agent.pk|stringformat:"s" %}selected{% endif %}>
                         {{ agent.full_name_or_username }}
@@ -49,7 +49,7 @@
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
-                    <th>Assigned Agent</th>
+                    <th>Assigned Executive</th>
                     <th>Area</th>
                     <th>Completion</th>
                     <th>Notes</th>

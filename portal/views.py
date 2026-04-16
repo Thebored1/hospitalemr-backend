@@ -220,7 +220,7 @@ def backup_import(request):
 # ============ Agent Management ============
 
 class AgentListView(PortalMixin, ListView):
-    """List all agents (advisors)."""
+    """List all executives (advisors)."""
     model = User
     template_name = 'portal/agents/list.html'
     context_object_name = 'agents'
@@ -250,7 +250,7 @@ class AgentListView(PortalMixin, ListView):
 
 
 class AgentCreateView(PortalMixin, CreateView):
-    """Create a new agent."""
+    """Create a new executive."""
     model = User
     form_class = AgentCreationForm
     template_name = 'portal/agents/form.html'
@@ -258,17 +258,17 @@ class AgentCreateView(PortalMixin, CreateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Create New Agent'
-        context['button_text'] = 'Create Agent'
+        context['title'] = 'Create New Executive'
+        context['button_text'] = 'Create Executive'
         return context
     
     def form_valid(self, form):
-        messages.success(self.request, f'Agent "{form.instance.username}" created successfully.')
+        messages.success(self.request, f'Executive "{form.instance.username}" created successfully.')
         return super().form_valid(form)
 
 
 class AgentUpdateView(PortalMixin, UpdateView):
-    """Edit an existing agent."""
+    """Edit an existing executive."""
     model = User
     form_class = AgentUpdateForm
     template_name = 'portal/agents/form.html'
@@ -279,18 +279,18 @@ class AgentUpdateView(PortalMixin, UpdateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = f'Edit Agent: {self.object.username}'
+        context['title'] = f'Edit Executive: {self.object.username}'
         context['button_text'] = 'Save Changes'
         context['is_edit'] = True
         return context
     
     def form_valid(self, form):
-        messages.success(self.request, f'Agent "{form.instance.username}" updated successfully.')
+        messages.success(self.request, f'Executive "{form.instance.username}" updated successfully.')
         return super().form_valid(form)
 
 
 class AgentPasswordChangeView(PortalMixin, View):
-    """Change agent password."""
+    """Change executive password."""
     template_name = 'portal/agents/password.html'
     
     def get_agent(self, pk):
@@ -312,7 +312,7 @@ class AgentPasswordChangeView(PortalMixin, View):
 
 
 class AgentDeleteView(PortalMixin, DeleteView):
-    """Delete an agent."""
+    """Delete an executive."""
     model = User
     template_name = 'portal/agents/delete.html'
     success_url = reverse_lazy('portal:agent_list')
@@ -322,7 +322,7 @@ class AgentDeleteView(PortalMixin, DeleteView):
         return User.objects.filter(role='advisor')
     
     def form_valid(self, form):
-        messages.success(self.request, f'Agent "{self.object.username}" deleted successfully.')
+        messages.success(self.request, f'Executive "{self.object.username}" deleted successfully.')
         return super().form_valid(form)
 
 
@@ -370,7 +370,7 @@ class TripListView(PortalMixin, ListView):
 
 
 class TripCreateView(PortalMixin, CreateView):
-    """Create a new trip and assign to an agent."""
+    """Create a new trip and assign to an executive."""
     model = Trip
     form_class = TripCreateForm
     template_name = 'portal/trips/form.html'
@@ -400,7 +400,7 @@ class TripDetailView(PortalMixin, DetailView):
 
 
 class AssignDoctorsView(PortalMixin, View):
-    """Assign doctors to a trip for the agent to visit."""
+    """Assign doctors to a trip for the executive to visit."""
     template_name = 'portal/trips/assign_doctors.html'
     
     def get_trip(self, pk):
@@ -677,14 +677,14 @@ from django.forms import modelformset_factory
 from .forms import DoctorCommissionForm
 
 class DoctorCommissionUpdateView(PortalMixin, TemplateView):
-    """Manage commission profiles for a doctor."""
+    """Manage referral profiles for a doctor."""
     template_name = 'portal/doctors/commission_form.html'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         doctor = get_object_or_404(DoctorReferral, pk=self.kwargs['pk'])
         context['doctor'] = doctor
-        context['title'] = f'Manage Commissions: {doctor.name}'
+        context['title'] = f'Manage Referrals: {doctor.name}'
         
         # Ensure profiles exist for all payment categories
         for cat in PaymentCategory.objects.all():
@@ -714,7 +714,7 @@ class DoctorCommissionUpdateView(PortalMixin, TemplateView):
         
         if formset.is_valid():
             formset.save()
-            messages.success(request, 'Commission rates updated successfully.')
+            messages.success(request, 'Referral rates updated successfully.')
             return redirect('portal:doctor_list')
             
         return self.render_to_response(context)
@@ -723,7 +723,7 @@ class DoctorCommissionUpdateView(PortalMixin, TemplateView):
 # ============ Area Management ============
 
 class AreaListView(PortalMixin, ListView):
-    """List all areas and assigned agents."""
+    """List all areas and assigned executives."""
     model = Area
     template_name = 'portal/areas/list.html'
     context_object_name = 'areas'
@@ -1020,7 +1020,7 @@ class ReportsDashboardView(PortalMixin, TemplateView):
         if spec: doc_init_q &= Q(specialization__iexact=spec)
         if doctor_id: doc_init_q &= Q(id=doctor_id)
         if agent_id: 
-            # Check legacy agent field OR area-based assignment
+            # Check legacy executive field OR area-based assignment
             doc_init_q &= (Q(agent_id=agent_id) | Q(address_details__area__agent_id=agent_id))
         
         doctors_in_context = DoctorReferral.objects.filter(doc_init_q).values('name')
@@ -1045,7 +1045,7 @@ class ReportsDashboardView(PortalMixin, TemplateView):
         full_doctor_stats.sort(key=lambda x: x.get('total_revenue', 0) or 0, reverse=True)
 
         
-        # --- 2. Agent-wise Activity Report ---
+        # --- 2. Executive-wise Activity Report ---
         agent_qs = User.objects.filter(role='advisor', is_active=True)
         if agent_id:
             agent_qs = agent_qs.filter(id=agent_id)
@@ -1175,6 +1175,7 @@ class ReportsDashboardView(PortalMixin, TemplateView):
                 F('investigation_charges') + F('procedural_surgical_charges') + 
                 F('anaesthesia_charges') + F('surgeon_charges') + F('other_charges')
             ),
+            total_referral_amount=Sum('commission_amount'),
             patient_count=Count('id'),
             opd_count=Count('id', filter=Q(admission_type='OPD')),
             ipd_count=Count('id', filter=Q(admission_type='IPD'))
@@ -1247,7 +1248,7 @@ class DoctorAssignmentView(PortalMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['form'] = AgentSelectionForm()
-        context['title'] = 'Assign Doctors to Agents'
+        context['title'] = 'Assign Doctors to Executives'
         context['current_status'] = self.request.GET.get('status', 'all')
         return context
     
@@ -1285,7 +1286,7 @@ class DoctorAssignmentView(PortalMixin, ListView):
         return redirect('portal:doctor_assignment')
 
 class AgentAssignmentListView(PortalMixin, ListView):
-    """List history of agent assignments."""
+    """List history of executive assignments."""
     model = AgentAssignment
     template_name = 'portal/agents/assignment_list.html'
     context_object_name = 'assignments'
@@ -1294,7 +1295,7 @@ class AgentAssignmentListView(PortalMixin, ListView):
     def get_queryset(self):
         queryset = AgentAssignment.objects.select_related('agent', 'area').order_by('-assigned_at')
         
-        # Filter by Agent
+        # Filter by Executive
         agent_id = self.request.GET.get('agent')
         if agent_id:
             queryset = queryset.filter(agent_id=agent_id)
@@ -1350,7 +1351,7 @@ class AgentAssignmentListView(PortalMixin, ListView):
 
 
 class AgentAssignmentCreateView(PortalMixin, CreateView):
-    """Create a new agent assignment."""
+    """Create a new executive assignment."""
     model = AgentAssignment
     form_class = AgentAssignmentForm
     template_name = 'portal/agents/assignment_form.html'
@@ -1358,8 +1359,8 @@ class AgentAssignmentCreateView(PortalMixin, CreateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = 'New Agent Assignment'
-        context['button_text'] = 'Assign Agent'
+        context['title'] = 'New Executive Assignment'
+        context['button_text'] = 'Assign Executive'
         context['areas_exist'] = Area.objects.exists()
         return context
     
@@ -1408,7 +1409,7 @@ class AgentAssignmentCreateView(PortalMixin, CreateView):
 
 
 class AgentAssignmentDetailView(PortalMixin, DetailView):
-    """View details of an agent assignment."""
+    """View details of an executive assignment."""
     model = AgentAssignment
     template_name = 'portal/agents/assignment_detail.html'
     context_object_name = 'assignment'
@@ -1457,7 +1458,7 @@ class AgentAssignmentDetailView(PortalMixin, DetailView):
 
 
 class AgentAssignmentDeleteView(PortalMixin, DeleteView):
-    """Delete an agent assignment."""
+    """Delete an executive assignment."""
     model = AgentAssignment
     success_url = reverse_lazy('portal:agent_assignment_list')
 
@@ -1539,7 +1540,7 @@ class PatientReferralStatusUpdateView(PortalMixin, View):
 from django.http import JsonResponse
 @staff_member_required
 def get_commission_rates(request):
-    """API to fetch commission rates for a doctor and payment category."""
+    """API to fetch referral rates for a doctor and payment category."""
     doctor_id = request.GET.get('doctor_id')
     category_id = request.GET.get('category')  # Now this is a PaymentCategory PK
     
@@ -1610,7 +1611,7 @@ from core.models import AgentAssignmentDoctorStatus
 
 @staff_member_required
 def toggle_doctor_assignment_status(request, assignment_id, doctor_id):
-    """Toggle doctor active/inactive status for a specific agent assignment."""
+    """Toggle doctor active/inactive status for a specific executive assignment."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
     

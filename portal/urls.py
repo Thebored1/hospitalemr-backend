@@ -33,6 +33,7 @@ urlpatterns = [
     path('doctors/<int:pk>/', views.DoctorDetailView.as_view(), name='doctor_detail'),
     path('doctors/<int:pk>/edit/', views.DoctorUpdateView.as_view(), name='doctor_edit'),
     path('doctors/<int:pk>/commission/', views.DoctorCommissionUpdateView.as_view(), name='doctor_commission'),
+    path('doctors/<int:pk>/referrals/', views.DoctorCommissionUpdateView.as_view(), name='doctor_referral'),
     
     # Admission & Billing
     path('admissions/', views.AdmissionListView.as_view(), name='admission_list'),
@@ -55,6 +56,7 @@ urlpatterns = [
     
     # API
     path('api/commission-rates/', views.get_commission_rates, name='get_commission_rates'),
+    path('api/referral-rates/', views.get_commission_rates, name='get_referral_rates'),
     
     # Doctor Toggle for Agent Assignments
     path('assignments/<int:assignment_id>/doctors/<int:doctor_id>/toggle/', views.toggle_doctor_assignment_status, name='toggle_doctor_assignment_status'),

@@ -97,9 +97,9 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">Agent</label>
+                <label class="form-label small fw-bold">Executive</label>
                 <select name="agent" class="form-select select2">
-                    <option value="">All Agents</option>
+                    <option value="">All Executives</option>
                     {% for agent in agents %}
                     <option value="{{agent.id}}" {% if filters_data.agent_id == agent.id %} selected{% endif %}>
                         {{ agent.full_name_or_username }}</option>
@@ -139,7 +139,7 @@
             <li class="nav-item" role="presentation"><button
                     class="nav-link {% if active_tab == 'agents' %}active{% endif %}" data-bs-toggle="tab"
                     data-bs-target="#agents" type="button" role="tab"><i class="bi bi-person-workspace me-1"></i>
-                    Agents</button></li>
+                    Executives</button></li>
             <li class="nav-item" role="presentation"><button
                     class="nav-link {% if active_tab == 'category' %}active{% endif %}" data-bs-toggle="tab"
                     data-bs-target="#category" type="button" role="tab"><i class="bi bi-tags me-1"></i>
@@ -153,7 +153,7 @@
 
 
                 <div class="row g-4 mb-4">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="card text-center border-0 shadow-sm">
                             <div class="card-body">
                                 <h2 class="text-primary mb-0">₹
@@ -162,11 +162,20 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="card text-center border-0 shadow-sm">
                             <div class="card-body">
                                 <h2 class="text-success mb-0">{{explorer_stats.patient_count}}</h2>
                                 <p class="text-muted small mb-0">Total Patients</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center border-0 shadow-sm">
+                            <div class="card-body">
+                                <h2 class="text-warning mb-0">₹
+                                    {{explorer_stats.total_referral_amount|default:"0.00"|floatformat:2}}</h2>
+                                <p class="text-muted small mb-0">Total Referral Amount</p>
                             </div>
                         </div>
                     </div>
@@ -182,11 +191,11 @@
                                 <th>Date</th>
                                 <th>Patient</th>
                                 <th>Doctor</th>
-                                <th>Agent</th>
+                                <th>Executive</th>
                                 <th>Type</th>
                                 <th>Category</th>
                                 <th class="text-end">Revenue</th>
-                                <th class="text-end">Commission</th>
+                                <th class="text-end">Referral</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -238,7 +247,7 @@
                             <th class="text-center">OPD Count</th>
                             <th class="text-center">IPD Count</th>
                             <th class="text-end">Total Revenue</th>
-                            <th class="text-end">Total Commission</th>
+                            <th class="text-end">Total Referral</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -262,7 +271,7 @@
                 <table id="agents-table" class="table table-hover align-middle">
                     <thead class="bg-light">
                         <tr>
-                            <th>Agent</th>
+                            <th>Executive</th>
                             <th class="text-center">Doctors Visited</th>
                             <th class="text-center">KMs Travelled</th>
                             <th class="text-center">Areas Visited</th>

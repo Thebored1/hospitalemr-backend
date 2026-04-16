@@ -34,7 +34,7 @@
                                 data-age="{{ pr.age|default_if_none:'' }}"
                                 data-gender="{{ pr.gender|default_if_none:'' }}"
                                 data-agent="{{ pr.agent.full_name_or_username }}">
-                                Agent: {{ pr.agent.full_name_or_username }} | {{ pr.illness }}
+                                Executive: {{ pr.agent.full_name_or_username }} | {{ pr.illness }}
                             </option>
                             {% endfor %}
                         </datalist>
@@ -85,10 +85,10 @@
                                 <i class="bi bi-plus-lg"></i>
                             </a>
                         </div>
-                        <div class="form-text">Links to agent for commission tracking</div>
+                        <div class="form-text">Links to executive for referral tracking</div>
                         <div id="referred-by-agent-display" class="alert alert-info py-2 mt-2 d-none">
                             <i class="bi bi-person-badge me-2"></i>
-                            Referred By Agent: <span class="fw-bold" id="agent-name-span"></span>
+                            Referred By Executive: <span class="fw-bold" id="agent-name-span"></span>
                         </div>
                     </div>
 
@@ -124,7 +124,7 @@
     <!-- Charges Breakdown -->
     <div class="card mt-4">
         <div class="card-header">
-            <i class="bi bi-currency-rupee me-2"></i>Charge Breakdown & Commission
+            <i class="bi bi-currency-rupee me-2"></i>Charge Breakdown & Referral
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -133,8 +133,8 @@
                         <tr>
                             <th style="width: 25%">Charge Type</th>
                             <th style="width: 25%">Amount (₹)</th>
-                            <th style="width: 15%">Commission %</th>
-                            <th style="width: 20%">Commission (₹)</th>
+                            <th style="width: 15%">Referral %</th>
+                            <th style="width: 20%">Referral (₹)</th>
                             <th>Details</th>
                         </tr>
                     </thead>
@@ -201,7 +201,7 @@
                             <td class="fw-bold text-end">Total</td>
                             <td class="fw-bold" id="total-charges">0.00</td>
                             <td></td>
-                            <td class="fw-bold text-success" id="total-commission">0.00</td>
+                            <td class="fw-bold text-success" id="total-referral">0.00</td>
                             <td>
                                 <small class="text-muted">Auto-calculated</small>
                             </td>
@@ -248,7 +248,7 @@
             if (ageInput && option.dataset.age) ageInput.value = option.dataset.age;
             if (genderInput && option.dataset.gender) genderInput.value = option.dataset.gender;
 
-            // Handle Agent Info & Doctor Field
+            // Handle Executive Info & Doctor Field
             const doctorSelect = document.getElementById("{{ form.referred_by_doctor.id_for_label }}");
             const agentDisplay = document.getElementById("referred-by-agent-display");
             const agentNameSpan = document.getElementById("agent-name-span");
@@ -287,7 +287,7 @@
         });
     })();
 
-    // Commission Calculation Logic
+    // Referral Calculation Logic
     (function () {
         // IDs for inputs (Django default IDs)
         const inputs = {
@@ -301,7 +301,7 @@
             anaesthesia: document.getElementById('id_anaesthesia_charges'),
             surgeon: document.getElementById('id_surgeon_charges'),
             other: document.getElementById('id_other_charges'),
-            commission_field: document.getElementById('id_commission_amount')
+            referral_field: document.getElementById('id_commission_amount')
         };
 
         let rates = {
@@ -318,7 +318,7 @@
 
             console.log(`Fetching rates for Doctor: ${doctorId}, Category: ${category}`);
 
-            fetch(`/portal/api/commission-rates/?doctor_id=${doctorId}&category=${category}`)
+            fetch(`/portal/api/referral-rates/?doctor_id=${doctorId}&category=${category}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
@@ -357,34 +357,38 @@
             // Referral percentage is shown in the summary card above.
         }
 
-        function calculateCommission(amount, rate) {
+        function calculateReferral(amount, rate) {
             return (parseFloat(amount || 0) * (rate / 100));
         }
 
         function calculateTotals() {
             let totalCharges = 0;
-            let totalCommission = 0;
+            let chargeWiseReferral = 0;
 
             const fields = ['bed', 'nursing', 'doctor_consultation', 'investigation', 'procedural', 'anaesthesia', 'surgeon', 'other'];
 
             fields.forEach(key => {
                 const amount = parseFloat(inputs[key].value || 0);
-                const commission = calculateCommission(amount, rates[key === 'doctor_consultation' ? 'doctor' : key]);
+                const referral = calculateReferral(amount, rates[key === 'doctor_consultation' ? 'doctor' : key]);
 
-                // Update row commission display
+                // Update row referral display
                 let commKey = key;
                 if (key === 'doctor_consultation') commKey = 'doctor';
 
                 const commSpan = document.getElementById(`comm-${commKey}`);
-                if (commSpan) commSpan.innerText = commission.toFixed(2);
+                if (commSpan) commSpan.innerText = referral.toFixed(2);
 
                 totalCharges += amount;
-                totalCommission += commission;
+                chargeWiseReferral += referral;
             });
 
+            // Standard referral is always added on top of charge-wise referral.
+            const standardReferralAmount = calculateReferral(totalCharges, rates.referral);
+            const totalReferral = chargeWiseReferral + standardReferralAmount;
+
             document.getElementById('total-charges').innerText = totalCharges.toFixed(2);
-            document.getElementById('total-commission').innerText = totalCommission.toFixed(2);
-            inputs.commission_field.value = totalCommission.toFixed(2);
+            document.getElementById('total-referral').innerText = totalReferral.toFixed(2);
+            inputs.referral_field.value = totalReferral.toFixed(2);
 
             // Update referral percentage display
             const referralDisplay = document.getElementById('referral-display');
@@ -407,8 +411,8 @@
             fetchRates();
         } else {
             // Ensure hidden field has a default value (even if 0) to prevent 'required' error
-            if (inputs.commission_field) {
-                inputs.commission_field.value = "0.00";
+            if (inputs.referral_field) {
+                inputs.referral_field.value = "0.00";
             }
         }
     })();
