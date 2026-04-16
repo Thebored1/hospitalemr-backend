@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: hospitalemr-backend
+    env: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: ./start.sh
+    envVars:
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: GUNICORN_TIMEOUT
+        value: "180"
+      - key: GUNICORN_THREADS
+        value: "2"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+

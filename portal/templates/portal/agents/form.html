@@ -1,0 +1,81 @@
+{% extends 'portal/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:agent_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Agents
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-plus me-2"></i>{{ title }}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                {{ form.first_name.label }} {% if form.first_name.field.required %}<span
+                                    class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors.0 }}
+                            </div>{% endif %}
+                            {% if form.first_name.help_text %}<div class="form-text">{{ form.first_name.help_text }}
+                            </div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                {{ form.last_name.label }} {% if form.last_name.field.required %}<span
+                                    class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors.0 }}
+                            </div>{% endif %}
+                            {% if form.last_name.help_text %}<div class="form-text">{{ form.last_name.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    </div><!-- end row -->
+
+                    {% for field in form %}
+                    {% if field.name != 'first_name' and field.name != 'last_name' %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">
+                            {{ field.label }}
+                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors.0 }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{{ button_text }}
+                        </button>
+                        <a href="{% url 'portal:agent_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

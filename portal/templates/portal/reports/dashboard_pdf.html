@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }} (PDF)</title>
+  <style>
+    @page { size: A4; margin: 16mm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #111; }
+    h1 { font-size: 16pt; margin: 0 0 6pt 0; }
+    h2 { font-size: 12pt; margin: 14pt 0 6pt 0; }
+    .muted { color: #666; font-size: 9pt; }
+    .kv { margin: 0 0 10pt 0; }
+    .kv div { margin: 0 0 2pt 0; }
+    .pill { display: inline-block; padding: 2pt 6pt; border: 1px solid #ccc; border-radius: 10pt; font-size: 9pt; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d0d0d0; padding: 4pt 6pt; vertical-align: top; }
+    th { background: #f2f2f2; font-weight: bold; }
+    .right { text-align: right; }
+    .nowrap { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <div class="muted">Generated: {% now "M d, Y H:i" %}</div>
+  <div class="kv">
+    <div>Active Tab: <span class="pill">{{ active_tab }}</span></div>
+    {% if has_filters %}
+      <div class="muted">
+        Filters:
+        {% if filters_data.area_id %} Area={{ filters_data.area_id }}{% endif %}
+        {% if filters_data.specialization %} Specialization={{ filters_data.specialization }}{% endif %}
+        {% if filters_data.doctor_id %} Doctor={{ filters_data.doctor_id }}{% endif %}
+        {% if filters_data.agent_id %} Agent={{ filters_data.agent_id }}{% endif %}
+        {% if filters_data.date_start %} From={{ filters_data.date_start }}{% endif %}
+        {% if filters_data.date_end %} To={{ filters_data.date_end }}{% endif %}
+      </div>
+    {% else %}
+      <div class="muted">Filters: None</div>
+    {% endif %}
+  </div>
+
+  {% if active_tab == 'patients' %}
+    <h2>Summary</h2>
+    <table>
+      <tr>
+        <th>Total Revenue</th>
+        <th>Total Admissions</th>
+        <th>OPD Patients</th>
+        <th>IPD Patients</th>
+      </tr>
+      <tr>
+        <td class="right">&#8377; {{ total_summary.total_revenue|default:"0.00"|floatformat:2 }}</td>
+        <td class="right">{{ total_summary.total_patients|default:0 }}</td>
+        <td class="right">{{ total_summary.opd_total|default:0 }}</td>
+        <td class="right">{{ total_summary.ipd_total|default:0 }}</td>
+      </tr>
+    </table>
+
+    <h2>Detailed Entries</h2>
+    <table>
+      <tr>
+        <th class="nowrap">Date</th>
+        <th>Patient</th>
+        <th>Doctor</th>
+        <th>Agent</th>
+        <th class="nowrap">Type</th>
+        <th>Category</th>
+        <th class="right">Revenue</th>
+        <th class="right">Commission</th>
+      </tr>
+      {% for admission in filtered_admissions %}
+        <tr>
+          <td class="nowrap">{{ admission.created_at|date:"M d, Y" }}</td>
+          <td>
+            <div><strong>{{ admission.patient_name }}</strong></div>
+            <div class="muted">{{ admission.patient_phone|default:"" }}</div>
+          </td>
+          <td>
+            <div>{{ admission.referred_by_doctor.name|default:"" }}</div>
+            <div class="muted">{{ admission.referred_by_doctor.specialization|default:"" }}</div>
+          </td>
+          <td>
+            {% if admission.patient_referral and admission.patient_referral.agent %}
+              {{ admission.patient_referral.agent.full_name_or_username }}
+            {% else %}
+              Unassigned
+            {% endif %}
+          </td>
+          <td class="nowrap">{{ admission.admission_type|default:"" }}</td>
+          <td>{{ admission.payment_category.name|default:"" }}</td>
+          <td class="right">&#8377; {{ admission.total_amount|default:"0.00"|floatformat:2 }}</td>
+          <td class="right">&#8377; {{ admission.commission_amount|default_if_none:0|floatformat:2 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">No admissions found for the selected filters.</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if active_tab == 'doctors' %}
+    <h2>Doctor-wise Revenue</h2>
+    <table>
+      <tr>
+        <th>Doctor Name</th>
+        <th class="right">OPD Count</th>
+        <th class="right">IPD Count</th>
+        <th class="right">Total Revenue</th>
+        <th class="right">Total Commission</th>
+      </tr>
+      {% for row in doctor_revenue %}
+        <tr>
+          <td>{{ row.referred_by_doctor__name|default:"" }}</td>
+          <td class="right">{{ row.opd_count|default:0 }}</td>
+          <td class="right">{{ row.ipd_count|default:0 }}</td>
+          <td class="right">&#8377; {{ row.total_revenue|default_if_none:0|floatformat:2 }}</td>
+          <td class="right">&#8377; {{ row.total_commission|default_if_none:0|floatformat:2 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No doctor stats found for the selected filters.</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if active_tab == 'agents' %}
+    <h2>Agent-wise Activity</h2>
+    <table>
+      <tr>
+        <th>Agent</th>
+        <th class="right">Doctors Visited</th>
+        <th class="right">KMs Travelled</th>
+        <th class="right">Areas Visited</th>
+        <th class="right">Direct Patients Referred</th>
+      </tr>
+      {% for row in agent_revenue %}
+        <tr>
+          <td>
+            {% with fn=row.patient_referral__agent__first_name ln=row.patient_referral__agent__last_name %}
+              {% if fn or ln %}
+                {{ fn }} {{ ln }}
+              {% else %}
+                {{ row.patient_referral__agent__username }}
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td class="right">{{ row.doctors_visited|default:0 }}</td>
+          <td class="right">{{ row.kms_travelled|default_if_none:0|floatformat:2 }}</td>
+          <td class="right">{{ row.areas_visited|default:0 }}</td>
+          <td class="right">{{ row.direct_patients_referred|default:0 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No agent stats found for the selected filters.</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if active_tab == 'category' %}
+    <h2>Category-wise Summary</h2>
+    <table>
+      <tr>
+        <th>Category</th>
+        <th class="right">Patient Count</th>
+        <th class="right">Total Revenue</th>
+      </tr>
+      {% for row in category_stats %}
+        <tr>
+          <td>{{ row.payment_category__name|default:"Uncategorized" }}</td>
+          <td class="right">{{ row.patient_count|default:0 }}</td>
+          <td class="right">&#8377; {{ row.total_revenue|default_if_none:0|floatformat:2 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3">No category stats found for the selected filters.</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+</body>
+</html>
+
