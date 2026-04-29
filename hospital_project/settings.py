@@ -184,3 +184,9 @@ else:
         MEDIA_ROOT = Path(BASE_DIR) / 'media'
 SERVE_MEDIA_IN_PROD = os.environ.get('SERVE_MEDIA_IN_PROD', 'true').lower() == 'true'
 
+# Authentication Redirects
+LOGIN_REDIRECT_URL = '/portal/'
+LOGOUT_REDIRECT_URL = '/portal/'
+LOGIN_URL = '/admin/login/' # Default to admin login if needed, or custom portal login if it exists
+
+

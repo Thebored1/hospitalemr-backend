@@ -11,6 +11,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.db.models import Count, Q, Sum, F
 from django.utils import timezone
@@ -33,6 +34,23 @@ class PortalMixin:
     
     @method_decorator(staff_member_required)
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            url_name = request.resolver_match.url_name
+            if url_name:
+                from .models import UserRoleAssignment, UserPageRestriction, RolePageRestriction
+                is_restricted = False
+                
+                role_assignment = UserRoleAssignment.objects.filter(user=request.user).first()
+                if role_assignment:
+                    if RolePageRestriction.objects.filter(role=role_assignment.role, url_name=url_name).exists():
+                        is_restricted = True
+                else:
+                    if UserPageRestriction.objects.filter(user=request.user, url_name=url_name).exists():
+                        is_restricted = True
+                        
+                if is_restricted:
+                    return HttpResponseForbidden("You do not have permission to view this page.")
+                    
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -42,8 +60,8 @@ class DashboardView(PortalMixin, TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['total_agents'] = User.objects.filter(role='advisor').count()
-        context['active_agents'] = User.objects.filter(role='advisor', is_active=True).count()
+        context['total_agents'] = User.objects.filter(custom_role_assignment__role__name='Mobile App User').count()
+        context['active_agents'] = User.objects.filter(custom_role_assignment__role__name='Mobile App User', is_active=True).count()
         context['total_trips'] = Trip.objects.count()
         context['ongoing_trips'] = Trip.objects.filter(status='ONGOING').count()
         context['completed_trips'] = Trip.objects.filter(status='COMPLETED').count()
@@ -226,7 +244,7 @@ class AgentListView(PortalMixin, ListView):
     context_object_name = 'agents'
     
     def get_queryset(self):
-        queryset = User.objects.filter(role='advisor').annotate(
+        queryset = User.objects.filter(custom_role_assignment__role__name='Mobile App User').annotate(
             trip_count=Count('trips')
         ).order_by('-date_joined')
         
@@ -250,7 +268,7 @@ class AgentListView(PortalMixin, ListView):
 
 
 class AgentCreateView(PortalMixin, CreateView):
-    """Create a new executive."""
+    """Create a new user."""
     model = User
     form_class = AgentCreationForm
     template_name = 'portal/agents/form.html'
@@ -258,34 +276,44 @@ class AgentCreateView(PortalMixin, CreateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Create New Executive'
-        context['button_text'] = 'Create Executive'
+        context['title'] = 'Create New User'
+        context['button_text'] = 'Create User'
+        # Add roles for the modal
+        from portal.models import CustomRole
+        context['roles'] = CustomRole.objects.all()
+        from portal.views import get_all_portal_pages
+        context['pages'] = get_all_portal_pages()
         return context
     
     def form_valid(self, form):
-        messages.success(self.request, f'Executive "{form.instance.username}" created successfully.')
+        messages.success(self.request, f'User "{form.instance.username}" created successfully.')
         return super().form_valid(form)
 
 
 class AgentUpdateView(PortalMixin, UpdateView):
-    """Edit an existing executive."""
+    """Edit an existing user."""
     model = User
     form_class = AgentUpdateForm
     template_name = 'portal/agents/form.html'
     success_url = reverse_lazy('portal:agent_list')
     
     def get_queryset(self):
-        return User.objects.filter(role='advisor')
+        return User.objects.all()
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = f'Edit Executive: {self.object.username}'
+        context['title'] = f'Edit User: {self.object.username}'
         context['button_text'] = 'Save Changes'
         context['is_edit'] = True
+        # Add roles for the modal
+        from portal.models import CustomRole
+        context['roles'] = CustomRole.objects.all()
+        from portal.views import get_all_portal_pages
+        context['pages'] = get_all_portal_pages()
         return context
     
     def form_valid(self, form):
-        messages.success(self.request, f'Executive "{form.instance.username}" updated successfully.')
+        messages.success(self.request, f'User "{form.instance.username}" updated successfully.')
         return super().form_valid(form)
 
 
@@ -294,7 +322,7 @@ class AgentPasswordChangeView(PortalMixin, View):
     template_name = 'portal/agents/password.html'
     
     def get_agent(self, pk):
-        return get_object_or_404(User, pk=pk, role='advisor')
+        return get_object_or_404(User, pk=pk, custom_role_assignment__role__name='Mobile App User')
     
     def get(self, request, pk):
         agent = self.get_agent(pk)
@@ -319,10 +347,100 @@ class AgentDeleteView(PortalMixin, DeleteView):
     context_object_name = 'agent'
     
     def get_queryset(self):
-        return User.objects.filter(role='advisor')
+        return User.objects.filter(custom_role_assignment__role__name='Mobile App User')
     
     def form_valid(self, form):
         messages.success(self.request, f'Executive "{self.object.username}" deleted successfully.')
+        return super().form_valid(form)
+
+
+# ============ User Management (General) ============
+
+from .forms import UserPortalCreationForm, UserPortalUpdateForm
+
+class UserPortalListView(PortalMixin, ListView):
+    """List all users (except superusers)."""
+    model = User
+    template_name = 'portal/users/list.html'
+    context_object_name = 'user_list'
+    
+    def get_queryset(self):
+        queryset = User.objects.exclude(is_superuser=True).order_by('-date_joined')
+        q = self.request.GET.get('q')
+        if q:
+            queryset = queryset.filter(
+                Q(username__icontains=q) |
+                Q(first_name__icontains=q) |
+                Q(last_name__icontains=q)
+            )
+        return queryset
+
+class UserPortalCreateView(PortalMixin, CreateView):
+    """Create a new user."""
+    model = User
+    form_class = UserPortalCreationForm
+    template_name = 'portal/users/form.html'
+    success_url = reverse_lazy('portal:user_portal_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Create New User'
+        context['button_text'] = 'Create User'
+        from portal.views import get_all_portal_pages
+        context['pages'] = get_all_portal_pages()
+        return context
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'User "{form.instance.username}" created successfully.')
+        return super().form_valid(form)
+
+class UserPortalUpdateView(PortalMixin, UpdateView):
+    """Edit an existing user."""
+    model = User
+    form_class = UserPortalUpdateForm
+    template_name = 'portal/users/form.html'
+    success_url = reverse_lazy('portal:user_portal_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f'Edit User: {self.object.username}'
+        context['button_text'] = 'Save Changes'
+        context['is_edit'] = True
+        from portal.views import get_all_portal_pages
+        context['pages'] = get_all_portal_pages()
+        return context
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'User "{form.instance.username}" updated successfully.')
+        return super().form_valid(form)
+
+class UserPortalPasswordChangeView(PortalMixin, View):
+    """Change user password."""
+    template_name = 'portal/users/password.html'
+    
+    def get(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        form = AgentPasswordForm(user=user)
+        return render(request, self.template_name, {'form': form, 'user_obj': user})
+    
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        form = AgentPasswordForm(user=user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Password for "{user.username}" changed successfully.')
+            return redirect('portal:user_portal_list')
+        return render(request, self.template_name, {'form': form, 'user_obj': user})
+
+class UserPortalDeleteView(PortalMixin, DeleteView):
+    """Delete a user."""
+    model = User
+    template_name = 'portal/users/delete.html'
+    success_url = reverse_lazy('portal:user_portal_list')
+    context_object_name = 'user_obj'
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'User "{self.object.username}" deleted successfully.')
         return super().form_valid(form)
 
 
@@ -365,7 +483,7 @@ class TripListView(PortalMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Pass agents for filter dropdown
-        context['agents'] = User.objects.filter(role='advisor', is_active=True)
+        context['agents'] = User.objects.filter(custom_role_assignment__role__name='Mobile App User', is_active=True)
         return context
 
 
@@ -541,7 +659,7 @@ class DoctorListView(PortalMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['agents'] = User.objects.filter(role='advisor', is_active=True)
+        context['agents'] = User.objects.filter(custom_role_assignment__role__name='Mobile App User', is_active=True)
         return context
 
 
@@ -1639,3 +1757,164 @@ def toggle_doctor_assignment_status(request, assignment_id, doctor_id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+
+
+# ============ Permission Management ============
+from .models import CustomRole, RolePageRestriction, UserPageRestriction, UserRoleAssignment
+from django.http import JsonResponse
+
+def get_all_portal_pages():
+    from portal.urls import urlpatterns as portal_urlpatterns
+    from core.urls import router
+    pages = []
+    excluded_names = [
+        'permission_list', 'permission_update', 'create_custom_role', 
+        'backup_dashboard', 'backup_export', 'backup_import'
+    ]
+    for pattern in portal_urlpatterns:
+        if hasattr(pattern, 'name') and pattern.name:
+            if not pattern.name.startswith('api_') and pattern.name not in excluded_names:
+                pages.append({
+                    'name': pattern.name,
+                    'title': 'Portal: ' + pattern.name.replace('_', ' ').title()
+                })
+                
+    for prefix, viewset, basename in router.registry:
+        name = f"api_{basename}"
+        pages.append({
+            'name': name,
+            'title': 'App API: ' + basename.replace('-', ' ').title()
+        })
+        
+    return pages
+
+class UserPermissionListView(PortalMixin, ListView):
+    """List all staff users to manage their permissions."""
+    model = User
+    template_name = 'portal/permissions/list.html'
+    context_object_name = 'users'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            return HttpResponseForbidden("Only superusers can manage permissions.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return User.objects.exclude(is_superuser=True).order_by('username')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['roles'] = CustomRole.objects.all()
+        context['pages'] = get_all_portal_pages()
+        return context
+
+class UserPermissionUpdateView(PortalMixin, DetailView):
+    """Update permissions for a specific user."""
+    model = User
+    template_name = 'portal/permissions/update.html'
+    context_object_name = 'user_obj'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            return HttpResponseForbidden("Only superusers can manage permissions.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.object
+        context['pages'] = get_all_portal_pages()
+        context['roles'] = CustomRole.objects.all()
+        
+        # Current role assignment
+        role_assignment = UserRoleAssignment.objects.filter(user=user).first()
+        context['current_role'] = role_assignment.role if role_assignment else None
+        
+        if role_assignment:
+            restricted = RolePageRestriction.objects.filter(role=role_assignment.role).values_list('url_name', flat=True)
+        else:
+            restricted = UserPageRestriction.objects.filter(user=user).values_list('url_name', flat=True)
+            
+        context['restricted_pages'] = set(restricted)
+        return context
+
+    def post(self, request, *args, **kwargs):
+        user = self.get_object()
+        role_id = request.POST.get('role')
+        
+        if not role_id or role_id == 'none':
+            messages.error(request, 'Please select a permission role.')
+            return redirect('portal:permission_update', pk=user.pk)
+            
+        # Clear existing assignments and individual restrictions
+        UserRoleAssignment.objects.filter(user=user).delete()
+        UserPageRestriction.objects.filter(user=user).delete()
+        
+        from django.shortcuts import get_object_or_404
+        role = get_object_or_404(CustomRole, pk=role_id)
+        UserRoleAssignment.objects.create(user=user, role=role)
+                    
+        messages.success(request, f'Permission role "{role.name}" assigned to {user.full_name_or_username}.')
+        return redirect('portal:permission_update', pk=user.pk)
+
+@staff_member_required
+def create_custom_role(request):
+    """AJAX endpoint to create a new CustomRole and its restrictions."""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+        
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        if not name:
+            return JsonResponse({'error': 'Name is required'}, status=400)
+            
+        if CustomRole.objects.filter(name=name).exists():
+            return JsonResponse({'error': 'Role with this name already exists'}, status=400)
+            
+        role = CustomRole.objects.create(name=name)
+        
+        all_pages = [p['name'] for p in get_all_portal_pages()]
+        allowed_pages = request.POST.getlist('pages[]')
+        
+        for page in all_pages:
+            if page not in allowed_pages:
+                RolePageRestriction.objects.create(role=role, url_name=page)
+                
+@staff_member_required
+def get_role_details(request, pk):
+    """AJAX endpoint to get role name and restricted pages."""
+    from .models import CustomRole, RolePageRestriction
+    role = get_object_or_404(CustomRole, pk=pk)
+    restrictions = RolePageRestriction.objects.filter(role=role).values_list('url_name', flat=True)
+    return JsonResponse({
+        'name': role.name,
+        'restricted_pages': list(restrictions)
+    })
+
+@staff_member_required
+def update_custom_role(request, pk):
+    """AJAX endpoint to update an existing CustomRole."""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+        
+    from .models import CustomRole, RolePageRestriction
+    role = get_object_or_404(CustomRole, pk=pk)
+    
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        if not name:
+            return JsonResponse({'error': 'Name is required'}, status=400)
+            
+        role.name = name
+        role.save()
+        
+        # Update restrictions
+        RolePageRestriction.objects.filter(role=role).delete()
+        all_pages = [p['name'] for p in get_all_portal_pages()]
+        allowed_pages = request.POST.getlist('pages[]')
+        
+        for page in all_pages:
+            if page not in allowed_pages:
+                RolePageRestriction.objects.create(role=role, url_name=page)
+                
+        return JsonResponse({'success': True, 'role_name': role.name})
+    return JsonResponse({'error': 'Invalid request'}, status=400)

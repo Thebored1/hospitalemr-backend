@@ -9,22 +9,31 @@ class AgentCreationForm(UserCreationForm):
     
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'password1', 'password2']
+        fields = ['username', 'first_name', 'last_name']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from portal.models import CustomRole
         # Add Bootstrap classes
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
         
         # Repurpose username as Phone Number
         self.fields['username'].label = 'Phone Number (Login ID)'
-        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the executive.'
+        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number.'
         self.fields['username'].widget.attrs['placeholder'] = 'e.g. 9876543210'
         self.fields['username'].widget.attrs['type'] = 'text'
         self.fields['username'].widget.attrs['maxlength'] = '10'
-        # Prevent non-numeric typing visually
         self.fields['username'].widget.attrs['oninput'] = "this.value = this.value.replace(/[^0-9]/g, '')"
+
+        # Add Custom Role selection
+        self.fields['custom_role'] = forms.ModelChoiceField(
+            queryset=CustomRole.objects.all(),
+            required=True,
+            label="Role",
+            help_text="Select a predefined role to define portal access and permissions.",
+            widget=forms.Select(attrs={'class': 'form-select'})
+        )
 
     def clean_username(self):
         # We must call super() for UserCreationForm's uniqueness check
@@ -34,11 +43,30 @@ class AgentCreationForm(UserCreationForm):
         if len(username) != 10:
             raise forms.ValidationError('Phone number must be exactly 10 digits.')
         return username
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.role = 'advisor'  # Set role to advisor
+        custom_role = self.cleaned_data.get('custom_role')
+        
+        # Set a default system role if not set
+        if not user.role or user.role == 'advisor':
+            role_name = custom_role.name.lower()
+            if 'admin' in role_name:
+                user.role = 'admin'
+            elif 'maintenance' in role_name or 'staff' in role_name:
+                user.role = 'maintenance'
+            else:
+                user.role = 'advisor'
+
         if commit:
+            user.is_staff = True
             user.save()
+            if custom_role:
+                from portal.models import UserRoleAssignment
+                UserRoleAssignment.objects.update_or_create(
+                    user=user,
+                    defaults={'role': custom_role}
+                )
         return user
 
 
@@ -51,6 +79,7 @@ class AgentUpdateForm(forms.ModelForm):
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from portal.models import CustomRole, UserRoleAssignment
         for field_name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs['class'] = 'form-check-input'
@@ -59,12 +88,27 @@ class AgentUpdateForm(forms.ModelForm):
 
         # Repurpose username as Phone Number
         self.fields['username'].label = 'Phone Number (Login ID)'
-        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number for the executive.'
+        self.fields['username'].help_text = 'Required. Enter the 10-digit phone number.'
         self.fields['username'].widget.attrs['placeholder'] = 'e.g. 9876543210'
         self.fields['username'].widget.attrs['type'] = 'text'
         self.fields['username'].widget.attrs['maxlength'] = '10'
-        # Prevent non-numeric typing visually
         self.fields['username'].widget.attrs['oninput'] = "this.value = this.value.replace(/[^0-9]/g, '')"
+
+        # Add Custom Role selection (MANDATORY)
+        initial_role = None
+        if self.instance.pk:
+            assignment = UserRoleAssignment.objects.filter(user=self.instance).first()
+            if assignment:
+                initial_role = assignment.role
+
+        self.fields['custom_role'] = forms.ModelChoiceField(
+            queryset=CustomRole.objects.all(),
+            required=True,
+            initial=initial_role,
+            label="Role",
+            help_text="Select a predefined role to define portal access and permissions.",
+            widget=forms.Select(attrs={'class': 'form-select'})
+        )
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
@@ -83,6 +127,134 @@ class AgentUpdateForm(forms.ModelForm):
             
         return username
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        custom_role = self.cleaned_data.get('custom_role')
+        if commit:
+            user.is_staff = True
+            user.save()
+            from portal.models import UserRoleAssignment
+            if custom_role:
+                UserRoleAssignment.objects.update_or_create(
+                    user=user,
+                    defaults={'role': custom_role}
+                )
+            else:
+                UserRoleAssignment.objects.filter(user=user).delete()
+        return user
+
+
+
+class UserPortalCreationForm(UserCreationForm):
+    """Form for creating any user account with role selection."""
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from portal.models import CustomRole
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-control'
+        
+        self.fields['username'].label = 'Phone Number (Login ID)'
+        self.fields['username'].widget.attrs['maxlength'] = '10'
+        self.fields['username'].widget.attrs['oninput'] = "this.value = this.value.replace(/[^0-9]/g, '')"
+
+        self.fields['custom_role'] = forms.ModelChoiceField(
+            queryset=CustomRole.objects.all(),
+            required=True,
+            label="Role",
+            help_text="Select a predefined role to define portal access and permissions.",
+            widget=forms.Select(attrs={'class': 'form-select'})
+        )
+
+    def clean_username(self):
+        username = super().clean_username()
+        if not username.isdigit() or len(username) != 10:
+            raise forms.ValidationError('Enter a valid 10-digit phone number.')
+        return username
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        custom_role = self.cleaned_data.get('custom_role')
+        
+        # Mapping system role best effort
+        role_name = custom_role.name.lower()
+        if 'admin' in role_name:
+            user.role = 'admin'
+        elif 'maintenance' in role_name or 'staff' in role_name:
+            user.role = 'maintenance'
+        else:
+            user.role = 'advisor'
+
+        if commit:
+            user.is_staff = True
+            user.save()
+            from portal.models import UserRoleAssignment
+            UserRoleAssignment.objects.update_or_create(
+                user=user,
+                defaults={'role': custom_role}
+            )
+        return user
+
+class UserPortalUpdateForm(forms.ModelForm):
+    """Form for updating any user account with role selection."""
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'is_active']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from portal.models import CustomRole, UserRoleAssignment
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs['class'] = 'form-check-input'
+            else:
+                field.widget.attrs['class'] = 'form-control'
+        
+        self.fields['username'].label = 'Phone Number (Login ID)'
+        self.fields['username'].widget.attrs['maxlength'] = '10'
+
+        initial_role = None
+        if self.instance.pk:
+            assignment = UserRoleAssignment.objects.filter(user=self.instance).first()
+            if assignment:
+                initial_role = assignment.role
+
+        self.fields['custom_role'] = forms.ModelChoiceField(
+            queryset=CustomRole.objects.all(),
+            required=True,
+            initial=initial_role,
+            label="Role",
+            help_text="Select a predefined role to define portal access and permissions.",
+            widget=forms.Select(attrs={'class': 'form-select'})
+        )
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not username.isdigit() or len(username) != 10:
+            raise forms.ValidationError('Enter a valid 10-digit phone number.')
+        qs = User.objects.filter(username=username)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError('A user with that phone number already exists.')
+        return username
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        custom_role = self.cleaned_data.get('custom_role')
+        if commit:
+            user.is_staff = True
+            user.save()
+            from portal.models import UserRoleAssignment
+            UserRoleAssignment.objects.update_or_create(
+                user=user,
+                defaults={'role': custom_role}
+            )
+        return user
+
 
 class AgentPasswordForm(SetPasswordForm):
     """Form for admin to set/reset executive password."""
@@ -97,7 +269,7 @@ class TripCreateForm(forms.ModelForm):
     """Form for creating trips and assigning to executives."""
     
     agent = forms.ModelChoiceField(
-        queryset=User.objects.filter(role='advisor', is_active=True),
+        queryset=User.objects.filter(custom_role_assignment__role__name='Mobile App User', is_active=True),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label='Assign to Executive'
     )
@@ -433,7 +605,7 @@ class DoctorCommissionForm(forms.ModelForm):
 
 class AgentSelectionForm(forms.Form):
     agent = forms.ModelChoiceField(
-        queryset=User.objects.filter(role='advisor'),
+        queryset=User.objects.filter(custom_role_assignment__role__name='Mobile App User'),
         empty_label="Select Executive",
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Assign to Executive"
@@ -444,7 +616,7 @@ class AgentAssignmentForm(forms.ModelForm):
     """Form for creating a new executive assignment to an area."""
     
     agent = forms.ModelChoiceField(
-        queryset=User.objects.filter(role='advisor', is_active=True),
+        queryset=User.objects.filter(custom_role_assignment__role__name='Mobile App User', is_active=True),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label='Select Executive'
     )

@@ -1,0 +1,207 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'portal:permission_list' %}" class="text-decoration-none">&larr; Back to Permissions List</a>
+    <h2 class="mt-2 fw-bold">Manage Permissions: {{ user_obj.full_name_or_username }}</h2>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">Assign Permission Role</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" id="permissionsForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="roleSelect" class="form-label fw-bold">Select a Role</label>
+                        <div class="d-flex gap-2">
+                            <select name="role" id="roleSelect" class="form-select" required>
+                                <option value="" disabled {% if not current_role %}selected{% endif %}>-- Choose a Role --</option>
+                                {% for r in roles %}
+                                <option value="{{ r.id }}" {% if current_role and current_role.id == r.id %}selected{% endif %}
+                                    data-restrictions="{% for rest in r.page_restrictions.all %}{{ rest.url_name }},{% endfor %}">
+                                    {{ r.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createRoleModal" title="Create New Role">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div class="form-text mt-2 text-muted">
+                            Every user must be assigned a role to define their access level.
+                        </div>
+                    </div>
+
+                    <div id="rolePreview" style="display: none;">
+                        <h6 class="fw-bold mb-3 border-top pt-3">Role Access Preview</h6>
+                        <div class="row g-2" id="previewList">
+                            {% for page in pages %}
+                            <div class="col-12 preview-item" data-page="{{ page.name }}">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-2 status-icon"></i>
+                                    <span class="small">{{ page.title }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top">
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="saveBtn">Save & Apply Role</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 bg-light">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">Why Role-Based?</h5>
+                <p class="text-muted small">
+                    By using roles instead of individual permissions, you ensure consistency across your organization. 
+                    If you update a role's permissions, everyone assigned to that role will be updated instantly.
+                </p>
+                <div class="alert alert-warning border-0 small mb-0">
+                    <i class="bi bi-info-circle me-1"></i> You can create new roles on the fly using the <strong>+</strong> button next to the dropdown.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Creating New Role -->
+<div class="modal fade" id="createRoleModal" tabindex="-1" aria-labelledby="createRoleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="createRoleModalLabel">Create New Permission Role</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="createRoleForm">
+            <div class="mb-4">
+                <label for="newRoleName" class="form-label fw-bold">Role Name</label>
+                <input type="text" class="form-control form-control-lg" id="newRoleName" required placeholder="e.g. Pharmacy Manager">
+            </div>
+            
+            <h6 class="fw-bold mt-4 mb-3">Select Allowed Pages for this Role</h6>
+            <div class="row g-2 mt-2" style="max-height: 400px; overflow-y: auto;">
+                {% for page in pages %}
+                <div class="col-md-6">
+                    <div class="form-check card p-2 border-light-subtle h-100">
+                        <input class="form-check-input new-role-checkbox ms-1" type="checkbox" value="{{ page.name }}" id="new_role_{{ page.name }}" checked>
+                        <label class="form-check-label ps-4" for="new_role_{{ page.name }}">
+                            {{ page.title }}
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary px-4 fw-bold" id="saveNewRoleBtn">Create & Select Role</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const roleSelect = document.getElementById('roleSelect');
+    const rolePreview = document.getElementById('rolePreview');
+    const previewItems = document.querySelectorAll('.preview-item');
+    const allPages = [{% for p in pages %}'{{ p.name }}',{% endfor %}];
+    
+    function updatePreview() {
+        const selectedOption = roleSelect.options[roleSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            rolePreview.style.display = 'none';
+            return;
+        }
+        
+        rolePreview.style.display = 'block';
+        const restrictionsStr = selectedOption.getAttribute('data-restrictions') || '';
+        const restrictions = restrictionsStr.split(',').filter(s => s.trim().length > 0);
+        
+        previewItems.forEach(item => {
+            const pageName = item.getAttribute('data-page');
+            const icon = item.querySelector('.status-icon');
+            if (restrictions.includes(pageName)) {
+                icon.className = 'bi bi-x-circle-fill text-danger me-2 status-icon';
+                item.style.opacity = '0.5';
+            } else {
+                icon.className = 'bi bi-check-circle-fill text-success me-2 status-icon';
+                item.style.opacity = '1';
+            }
+        });
+    }
+
+    roleSelect.addEventListener('change', updatePreview);
+    updatePreview();
+    
+    // AJAX Role Creation
+    const saveNewRoleBtn = document.getElementById('saveNewRoleBtn');
+    saveNewRoleBtn.addEventListener('click', function() {
+        const name = document.getElementById('newRoleName').value.trim();
+        if (!name) {
+            alert('Please enter a role name.');
+            return;
+        }
+        
+        const selectedPages = [];
+        document.querySelectorAll('.new-role-checkbox:checked').forEach(cb => {
+            selectedPages.push(cb.value);
+        });
+        
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        selectedPages.forEach(p => formData.append('pages[]', p));
+        
+        saveNewRoleBtn.disabled = true;
+        saveNewRoleBtn.textContent = 'Saving...';
+        
+        fetch("{% url 'portal:create_custom_role' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const restricted = allPages.filter(p => !selectedPages.includes(p));
+                const restrictionsAttr = restricted.join(',');
+                
+                const option = new Option(data.role_name, data.role_id, true, true);
+                option.setAttribute('data-restrictions', restrictionsAttr);
+                roleSelect.add(option);
+                
+                updatePreview();
+                bootstrap.Modal.getInstance(document.getElementById('createRoleModal')).hide();
+                document.getElementById('createRoleForm').reset();
+            } else {
+                alert(data.error || 'Failed to create role');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('An error occurred.');
+        })
+        .finally(() => {
+            saveNewRoleBtn.disabled = false;
+            saveNewRoleBtn.textContent = 'Create & Select Role';
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -8,19 +8,20 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from .models import Task, DoctorReferral, DoctorVisit, PatientReferral, Trip, OvernightStay, Specialization, Qualification, Area, Address, User, AgentAssignment, AgentAssignmentDoctorStatus, ClientLog
 from .serializers import TaskSerializer, DoctorReferralSerializer, TripDoctorVisitSerializer, PatientReferralSerializer, TripSerializer, OvernightStaySerializer, SpecializationSerializer, QualificationSerializer, AreaSerializer, AddressSerializer, ClientLogSerializer
+from .permissions import DynamicAPIPermission
 
 class SpecializationViewSet(viewsets.ModelViewSet):
     """ViewSet for managing doctor specializations"""
     queryset = Specialization.objects.all()
     serializer_class = SpecializationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
 
 class QualificationViewSet(viewsets.ModelViewSet):
     """ViewSet for managing doctor qualifications"""
     queryset = Qualification.objects.all()
     serializer_class = QualificationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -38,7 +39,7 @@ class CustomAuthToken(ObtainAuthToken):
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
     def perform_create(self, serializer):
         # Automatically set raised_by to the current user
@@ -47,7 +48,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 class TripViewSet(viewsets.ModelViewSet):
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
     def get_queryset(self):
         # Filter trips by the current agent
@@ -144,7 +145,7 @@ class TripViewSet(viewsets.ModelViewSet):
 
 class AreaViewSet(viewsets.ModelViewSet):
     serializer_class = AreaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
 
 class ClientLogViewSet(
@@ -158,7 +159,7 @@ class ClientLogViewSet(
     def get_permissions(self):
         if self.action == 'create':
             return [AllowAny()]
-        return [IsAdminUser()]
+        return [IsAdminUser(), DynamicAPIPermission()]
 
     def perform_create(self, serializer):
         user = self.request.user if self.request.user.is_authenticated else None
@@ -204,7 +205,7 @@ class ClientLogViewSet(
 class DoctorReferralViewSet(viewsets.ModelViewSet):
     queryset = DoctorReferral.objects.all()
     serializer_class = DoctorReferralSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
     def get_queryset(self):
         from django.db.models import Q
@@ -643,7 +644,7 @@ class DoctorReferralViewSet(viewsets.ModelViewSet):
 class OvernightStayViewSet(viewsets.ModelViewSet):
     queryset = OvernightStay.objects.all()
     serializer_class = OvernightStaySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
     def get_queryset(self):
         return OvernightStay.objects.filter(trip__agent=self.request.user)
@@ -651,7 +652,7 @@ class OvernightStayViewSet(viewsets.ModelViewSet):
 class PatientReferralViewSet(viewsets.ModelViewSet):
     queryset = PatientReferral.objects.all()
     serializer_class = PatientReferralSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicAPIPermission]
 
     def get_queryset(self):
         return PatientReferral.objects.filter(agent=self.request.user)

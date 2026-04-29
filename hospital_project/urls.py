@@ -8,6 +8,7 @@ from django.urls import re_path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('accounts/', include('django.contrib.auth.urls')), # Added for better redirect control
     path('api/', include('core.urls')),
     path('portal/', include('portal.urls')),
     path('', RedirectView.as_view(url='/portal/', permanent=False)),

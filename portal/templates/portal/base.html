@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load portal_extras %}
 <html lang="en">
 
 <head>
@@ -30,11 +31,23 @@
 
         .sidebar {
             background: linear-gradient(180deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            min-height: 100vh;
+            height: 100vh;
             position: fixed;
             width: 250px;
             padding-top: 20px;
             z-index: 1040;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 10px;
         }
 
         .sidebar .nav-link {
@@ -133,58 +146,103 @@
             <i class="bi bi-hospital"></i> Hospital EMR
         </div>
         <ul class="nav flex-column">
+            {% has_portal_permission request.user 'dashboard' as can_view_dashboard %}
+            {% if can_view_dashboard %}
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
                     href="{% url 'portal:dashboard' %}">
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
             </li>
+            {% endif %}
+
+            {% has_portal_permission request.user 'agent_list' as can_view_agents %}
+            {% if can_view_agents %}
             <li class="nav-item">
                 <a class="nav-link {% if 'agent' in request.resolver_match.url_name and 'assignment' not in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:agent_list' %}">
                     <i class="bi bi-people"></i> Executives
                 </a>
             </li>
+            {% endif %}
+
+            {% has_portal_permission request.user 'user_portal_list' as can_view_users %}
+            {% if can_view_users %}
+            <li class="nav-item">
+                <a class="nav-link {% if 'user_portal' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'portal:user_portal_list' %}">
+                    <i class="bi bi-person-badge"></i> Users
+                </a>
+            </li>
+            {% endif %}
+            {% has_portal_permission request.user 'agent_assignment_list' as can_view_assignments %}
+            {% if can_view_assignments %}
             <li class="nav-item">
                 <a class="nav-link {% if 'assignment' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:agent_assignment_list' %}">
                     <i class="bi bi-person-check"></i> Assign Executives
                 </a>
             </li>
+            {% endif %}
+
+            {% has_portal_permission request.user 'trip_list' as can_view_trips %}
+            {% if can_view_trips %}
             <li class="nav-item">
                 <a class="nav-link {% if 'trip' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:trip_list' %}">
                     <i class="bi bi-car-front"></i> Trips
                 </a>
             </li>
+            {% endif %}
+            {% has_portal_permission request.user 'doctor_list' as can_view_doctors %}
+            {% if can_view_doctors %}
             <li class="nav-item">
                 <a class="nav-link {% if 'doctor' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:doctor_list' %}">
                     <i class="bi bi-person-badge"></i> Doctors
                 </a>
             </li>
+            {% endif %}
+
+            {% has_portal_permission request.user 'admission_list' as can_view_admissions %}
+            {% if can_view_admissions %}
             <li class="nav-item">
                 <a class="nav-link {% if 'admission' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:admission_list' %}">
                     <i class="bi bi-hospital"></i> Admissions
                 </a>
             </li>
+            {% endif %}
+            {% has_portal_permission request.user 'patient_list' as can_view_patients %}
+            {% if can_view_patients %}
             <li class="nav-item">
                 <a class="nav-link {% if 'patient' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:patient_list' %}">
                     <i class="bi bi-person-plus"></i> Patient Referrals
                 </a>
             </li>
+            {% endif %}
+
+            {% has_portal_permission request.user 'reports_dashboard' as can_view_reports %}
+            {% if can_view_reports %}
             <li class="nav-item">
                 <a class="nav-link {% if 'reports' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:reports_dashboard' %}">
                     <i class="bi bi-graph-up-arrow"></i> Reports
                 </a>
             </li>
+            {% endif %}
+            {% if request.user.is_superuser %}
             <li class="nav-item">
                 <a class="nav-link {% if 'backup' in request.resolver_match.url_name %}active{% endif %}"
                     href="{% url 'portal:backup_dashboard' %}">
                     <i class="bi bi-archive"></i> Backups
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if 'permission' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'portal:permission_list' %}">
+                    <i class="bi bi-shield-lock"></i> Permissions
                 </a>
             </li>
             <li class="nav-item mt-4">
@@ -192,8 +250,9 @@
                     <i class="bi bi-gear"></i> Django Admin
                 </a>
             </li>
+            {% endif %}
             <li class="nav-item mt-2">
-                <form action="{% url 'admin:logout' %}" method="post" class="w-100 m-0 p-0">
+                <form action="{% url 'logout' %}" method="post" class="w-100 m-0 p-0">
                     {% csrf_token %}
                     <button type="submit" class="nav-link text-danger w-100 text-start border-0 bg-transparent"
                         style="padding: 12px 20px; margin: 4px 12px;">

@@ -22,6 +22,13 @@ urlpatterns = [
     path('agents/assignments/create/', views.AgentAssignmentCreateView.as_view(), name='agent_assignment_create'),
     path('agents/assignments/<int:pk>/', views.AgentAssignmentDetailView.as_view(), name='agent_assignment_detail'),
     
+    # User Management (General)
+    path('users/', views.UserPortalListView.as_view(), name='user_portal_list'),
+    path('users/create/', views.UserPortalCreateView.as_view(), name='user_portal_create'),
+    path('users/<int:pk>/edit/', views.UserPortalUpdateView.as_view(), name='user_portal_edit'),
+    path('users/<int:pk>/password/', views.UserPortalPasswordChangeView.as_view(), name='user_portal_password'),
+    path('users/<int:pk>/delete/', views.UserPortalDeleteView.as_view(), name='user_portal_delete'),
+    
     # Trip Management (view-only - agents create trips via mobile app)
     path('trips/', views.TripListView.as_view(), name='trip_list'),
     path('trips/<int:pk>/', views.TripDetailView.as_view(), name='trip_detail'),
@@ -66,4 +73,11 @@ urlpatterns = [
     
     # Reports
     path('reports/', views.ReportsDashboardView.as_view(), name='reports_dashboard'),
+    
+    # Permissions
+    path('permissions/', views.UserPermissionListView.as_view(), name='permission_list'),
+    path('permissions/user/<int:pk>/', views.UserPermissionUpdateView.as_view(), name='permission_update'),
+    path('permissions/role/create/', views.create_custom_role, name='create_custom_role'),
+    path('permissions/role/<int:pk>/', views.get_role_details, name='get_role_details'),
+    path('permissions/role/<int:pk>/update/', views.update_custom_role, name='update_custom_role'),
 ]

@@ -4,9 +4,6 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-people me-2"></i>Executives</h2>
-    <a href="{% url 'portal:agent_create' %}" class="btn btn-primary">
-        <i class="bi bi-person-plus me-1"></i> New Executive
-    </a>
 </div>
 
 <div class="card mb-4 bg-light border-0">
@@ -39,9 +36,9 @@
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
-                    <th>Username</th>
                     <th>Full Name</th>
-                    <th>Trips</th>
+                    <th>Username (Phone)</th>
+                    <th>Role</th>
                     <th>Status</th>
                     <th>Joined</th>
                     <th>Actions</th>
@@ -50,13 +47,13 @@
             <tbody>
                 {% for agent in agents %}
                 <tr>
+                    <td>{{ agent.get_full_name|default:"-" }}</td>
                     <td>
                         <i class="bi bi-person-circle me-1"></i>
                         <strong>{{ agent.username }}</strong>
                     </td>
-                    <td>{{ agent.get_full_name|default:"-" }}</td>
                     <td>
-                        <span class="badge bg-secondary">{{ agent.trip_count }} trips</span>
+                        <span class="badge bg-primary">{{ agent.custom_role_assignment.role.name|default:"No Role" }}</span>
                     </td>
                     <td>
                         {% if agent.is_active %}
@@ -86,7 +83,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="7" class="text-center text-muted py-4">
-                        No executives yet. <a href="{% url 'portal:agent_create' %}">Create one</a>
+                        No executives found.
                     </td>
                 </tr>
                 {% endfor %}

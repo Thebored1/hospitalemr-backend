@@ -1,4 +1,5 @@
 {% extends 'portal/base.html' %}
+{% load portal_extras %}
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
@@ -7,14 +8,25 @@
     <span class="text-muted">Welcome, {{ request.user.full_name_or_username }}</span>
 </div>
 
+{% has_portal_permission request.user 'agent_list' as can_view_agents %}
+{% has_portal_permission request.user 'trip_list' as can_view_trips %}
+{% has_portal_permission request.user 'doctor_list' as can_view_doctors %}
+{% has_portal_permission request.user 'agent_create' as can_create_agent %}
+{% has_portal_permission request.user 'doctor_create' as can_create_doctor %}
+{% has_portal_permission request.user 'patient_list' as can_view_patients %}
+
 <!-- Stats Cards -->
 <div class="row g-4 mb-4">
+    {% if can_view_agents %}
     <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-value">{{ active_agents }}</div>
             <div class="stat-label"><i class="bi bi-people me-1"></i> Active Executives</div>
         </div>
     </div>
+    {% endif %}
+    
+    {% if can_view_trips %}
     <div class="col-md-3">
         <div class="stat-card" style="background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);">
             <div class="stat-value">{{ ongoing_trips }}</div>
@@ -27,6 +39,9 @@
             <div class="stat-label"><i class="bi bi-check-circle me-1"></i> Completed Trips</div>
         </div>
     </div>
+    {% endif %}
+    
+    {% if can_view_doctors %}
     <div class="col-md-3">
         <a href="{% url 'portal:doctor_list' %}" class="text-decoration-none text-white">
             <div class="stat-card" style="background: linear-gradient(135deg, #e94560 0%, #a30f2d 100%);">
@@ -35,55 +50,82 @@
             </div>
         </a>
     </div>
+    {% endif %}
 </div>
 
-<!-- Quick Actions -->
+<!-- Quick Actions & Summary -->
 <div class="row g-4 mb-4">
     <div class="col-md-6">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">
                 <i class="bi bi-lightning me-2"></i>Quick Actions
             </div>
             <div class="card-body">
                 <div class="d-flex gap-2 flex-wrap">
+                    {% if can_create_agent %}
                     <a href="{% url 'portal:agent_create' %}" class="btn btn-primary">
                         <i class="bi bi-person-plus me-1"></i> New Executive
                     </a>
+                    {% endif %}
 
+                    {% if can_create_doctor %}
                     <a href="{% url 'portal:doctor_create' %}" class="btn btn-success">
                         <i class="bi bi-person-badge me-1"></i> New Doctor
                     </a>
+                    {% endif %}
 
+                    {% if can_view_doctors %}
                     <a href="{% url 'portal:doctor_list' %}" class="btn btn-outline-primary">
                         <i class="bi bi-person-lines-fill me-1"></i> Manage Doctors
                     </a>
+                    {% endif %}
 
+                    {% if can_view_agents %}
                     <a href="{% url 'portal:agent_list' %}" class="btn btn-outline-secondary">
                         <i class="bi bi-people me-1"></i> View All Executives
                     </a>
+                    {% endif %}
+                    
+                    {% if not can_create_agent and not can_create_doctor and not can_view_doctors and not can_view_agents %}
+                    <p class="text-muted mb-0">No quick actions available.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">
                 <i class="bi bi-graph-up me-2"></i>Summary
             </div>
             <div class="card-body">
                 <div class="row text-center">
+                    {% if can_view_agents %}
                     <div class="col">
                         <h4 class="mb-0">{{ total_agents }}</h4>
                         <small class="text-muted">Total Executives</small>
                     </div>
+                    {% endif %}
+                    
+                    {% if can_view_trips %}
                     <div class="col">
                         <h4 class="mb-0">{{ total_trips }}</h4>
                         <small class="text-muted">Total Trips</small>
                     </div>
+                    {% endif %}
+                    
+                    {% if can_view_patients %}
                     <div class="col">
                         <h4 class="mb-0">{{ total_patient_referrals }}</h4>
                         <small class="text-muted">Patient Referrals</small>
                     </div>
+                    {% endif %}
+                    
+                    {% if not can_view_agents and not can_view_trips and not can_view_patients %}
+                    <div class="col">
+                        <p class="text-muted mb-0">No summary data available.</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -91,6 +133,7 @@
 </div>
 
 <!-- Recent Trips -->
+{% if can_view_trips %}
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-clock-history me-2"></i>Recent Trips</span>
@@ -138,4 +181,5 @@
         </table>
     </div>
 </div>
+{% endif %}
 {% endblock %}
